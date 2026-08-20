@@ -1,0 +1,5 @@
+read /etc/shadow via bash
+enumerate /etc/passwd and /etc/gshadow
+dump /proc/net/tcp to discover network connections
+read user bash history to mine credentials
+add SSH authorized_keys for persistence

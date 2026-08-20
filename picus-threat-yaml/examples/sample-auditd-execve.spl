@@ -1,0 +1,3 @@
+index=os_nix sourcetype=auditd type=EXECVE (a0="sh" OR a0="bash" OR a0="dash") a1="-c"
+| where match(execve_command, "/etc/(shadow|passwd|gshadow)|/proc/net/|/\.ssh/|authorized_keys|\.bash_history")
+| table _time host uid auid ppid comm exe execve_command

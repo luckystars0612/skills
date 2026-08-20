@@ -1,0 +1,21 @@
+title: Suspicious Access to Sensitive Files via Shell
+id: 8e3a9b2c-1234-5678-9abc-def012345678
+status: stable
+description: Detects shell access to /etc/shadow, /etc/passwd, /etc/gshadow, /proc/net, and SSH key material
+logsource:
+    product: linux
+    category: process_creation
+detection:
+    selection:
+        Image|endswith:
+            - /bash
+            - /sh
+            - /dash
+        CommandLine|contains:
+            - /etc/shadow
+            - /etc/passwd
+            - /etc/gshadow
+            - /proc/net
+            - /etc/crontab
+    condition: selection
+level: high
