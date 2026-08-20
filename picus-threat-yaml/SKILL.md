@@ -10,8 +10,9 @@ description: >
   conditions, or any Picus-specific field values. Always use this skill for anything
   related to Picus threat authoring — even if the user just says "create a threat" or
   "write a threat file".
-  Also use this skill when the user provides a Splunk SPL rule, a Sigma rule, or a
-  plain-text goal and wants an import-ready Picus campaign generated automatically.
+  Also use this skill when the user provides a Splunk SPL rule, a Sigma rule, a plain-text
+  goal, or a real-world threat / CVE / malware description and wants an import-ready Picus
+  campaign generated automatically.
 ---
 
 # Picus Custom Threat YAML Skill
@@ -19,29 +20,157 @@ description: >
 A complete guide for authoring, structuring, and packaging custom threats for the Picus
 Security Continuous Validation (SCV) platform.
 
----
-
-## Workflow Overview
-
-When a user asks to create a custom threat, follow this sequence:
-
-1. **Gather intent** — ask which attack module and what the threat should simulate
-2. **Choose the module** → load the correct reference section for that module
-3. **Draft the threat.yaml** — use the templates and field rules below
-4. **Validate** — check required fields, file path consistency, result_condition references
-5. **Package** — give ZIP instructions with the correct password
+This is a **skill for an AI agent**. It supplies the context — canonical YAML shapes,
+canonical worked examples, field vocabularies, module invariants, packaging rules — so
+the agent can hand-author any threat for any module on demand. The user may ask the
+agent to build a binary sample, compute hashes, generate base64 filenames, write
+`success_conditions`, package the ZIP, or do anything else threat-related. The agent
+has the full context here to act.
 
 ---
 
-## Rule-to-Threat Generation (auto-pipeline)
+## Quick start
 
-When the user provides a **detection rule or a plain-text goal** — not raw YAML —
-use the auto-pipeline below. This is the recommended path for users who want to
-turn an existing detection rule into a Picus threat without hand-writing the YAML.
+When the user asks for a threat:
+
+1. **Identify the module** — see [Module index](#module-index--reference-docs).
+2. **Read the per-module reference doc** + canonical example listed in that index.
+3. **Hand-author `threat.yaml`** using the module's invariants, field inventory, and
+   keyword-queries template.
+4. **Build the payload** (binary, PDF, `.req`, sample data) and drop it in `files/`.
+5. **Validate** — see [Validation Checklist](#validation-checklist) at the bottom.
+6. **Package** — AES-256-encrypted ZIP with password `picus`.
+
+If the input is a Splunk SPL / Sigma rule / plain-text goal AND the module is
+**Linux Endpoint** or **Windows Endpoint**, you can use the [auto-pipeline](#auto-pipeline-linux--windows-endpoint-only)
+as a shortcut. For every other module, hand-authoring is the only path.
+
+---
+
+## Module index — reference docs
+
+The per-module docs are canonical, derived from real Picus threats under
+`~/Desktop/picus-threats/`. **Open the doc that matches the user's chosen module and
+read it before authoring.**
+
+| Module | Reference doc | Canonical example threat |
+|---|---|---|
+| `Endpoint Scenario` (Windows) / `Linux Endpoint Scenario` | [endpoint.md](references/modules/endpoint.md) | Linux-sensitive-file canonical examples in [endpoint.md](references/modules/endpoint.md) |
+| `macOS Endpoint Scenario` | [macos-endpoint.md](references/modules/macos-endpoint.md) | [Realst Infostealer Campaign](../../../Desktop/picus-threats/Realst%20Infostealer%20Campaign/threat.yaml) |
+| `Kubernetes Endpoint Scenario` | [kubernetes-endpoint.md](references/modules/kubernetes-endpoint.md) | [Command and Control Kubernetes Micro Emulation Plan](../../../Desktop/picus-threats/Command%20and%20Control%20Kubernetes%20Micro%20Emulation%20Plan/threat.yaml) |
+| `File Download` | [file-download.md](references/modules/file-download.md) | [CRPX0 Ransomware Download Threat](../../../Desktop/picus-threats/CRPX0%20Ransomware%20Download%20Threat/threat.yaml) |
+| `Email` | [email.md](references/modules/email.md) | [ChainDrop Malware Dropper Email Threat](../../../Desktop/picus-threats/ChainDrop%20Malware%20Dropper%20Email%20Threat/threat.yaml) |
+| `Web Application` | [web-application.md](references/modules/web-application.md) | [Generic XSS Evasion Web Attack Campaign - 14](../../../Desktop/picus-threats/Generic%20XSS%20Evasion%20Web%20Attack%20Campaign%20-%2014/threat.yaml) |
+| `Data Exfiltration` | [data-exfiltration.md](references/modules/data-exfiltration.md) | [PDF Format Data Exfiltration Campaign](../../../Desktop/picus-threats/PDF%20Format%20Data%20Exfiltration%20Campaign/threat.yaml) |
+| `URL Filtering` | [url-filtering.md](references/modules/url-filtering.md) | no canonical example under `~/Desktop/picus-threats/` — see doc for template |
+| `Azure / AWS / GCP Cloud Emulation` | [cloud-emulation.md](references/modules/cloud-emulation.md) | no canonical example under `~/Desktop/picus-threats/` — see doc for template |
+
+**The skill author itself, not the auto-pipeline, is the source of truth for every
+module above.** The reference docs contain: field inventory with real values, canonical
+keyword-queries template, real worked example, differences vs other modules, and a
+module-specific authoring checklist. Read the doc, follow the checklist, ship the
+threat.
+
+---
+
+## Workflow
+
+### Step 1 — Identify the attack module
+
+Ask the user if unclear. The module determines which fields, categories, UKC phases,
+keyword-queries noise filters, and packaging conventions apply.
+
+| Module | Best for |
+|---|---|
+| `Endpoint Scenario` | Windows process execution, lateral movement |
+| `Linux Endpoint Scenario` | Linux process execution |
+| `macOS Endpoint Scenario` | macOS process execution |
+| `Kubernetes Endpoint Scenario` | Attacks on a Kubernetes node (Linux process execution, K8s routing) |
+| `File Download` | Delivering malicious file payloads via network |
+| `Email` | Phishing attachments or URL delivery |
+| `Web Application` | HTTP request-based attacks against web apps |
+| `Data Exfiltration` | Simulating data theft scenarios (typically file uploads) |
+| `URL Filtering` | Testing URL category filtering controls |
+| `Azure Cloud Emulation` | Azure ARM / Entra ID / m365 attack steps |
+| `AWS Cloud Emulation` | AWS attack command sequences |
+| `GCP Cloud Emulation` | GCP attack command sequences |
+
+After choosing, **read the matching reference doc from the [index](#module-index--reference-docs)**.
+
+### Step 2 — Hand-author `threat.yaml`
+
+Use the reference doc for that module. Every doc includes:
+
+1. **Module invariants table** — fields that are constant across every action.
+2. **Campaign/objective/action shape** — the literal YAML skeleton.
+3. **Field inventory** — every field with required/optional and an example value.
+4. **Substructure docs** — `play_processes` steps, `remote_files` encoding, `.req` format,
+   etc.
+5. **Keyword-queries canonical template** — the exact boolean expression to emit.
+6. **Real worked example** — copy/adapt this for the user's threat.
+7. **Authoring checklist** — verify before packaging.
+
+The agent is responsible for:
+
+- Picking MITRE ATT&CK tactic / technique / sub-technique IDs that match the user's intent.
+- Computing SHA-256 / SHA-1 / MD5 of any binary payload.
+- Encoding on-disk filenames as `files/<base64(MD5)>___<base64(UUID)>.<ext>`.
+- Writing `success_conditions` (substring output matches) and `result_condition` (pass/fail logic).
+- Building the payload itself: shell scripts, `.bat` files, ELF binaries, dropper chains,
+  PDF samples, HTTP request bodies, etc. — the user wants the agent to produce these.
+
+### Step 3 — Build the payload files
+
+Whatever the action needs, drop it in `<threat-name>/files/`. Conventions:
+
+- **Endpoint (Linux/Windows/macOS/K8s):** dropper shell script or compiled binary.
+- **File Download / Email:** malicious binary in `files/`; on-disk filename is
+  `files/<base64(MD5)>___<base64(UUID)>.<ext>` to dodge filesystem encoding issues.
+- **Web Application:** HTTP request body in `files/<digits>.req` with the mandatory
+  `/page{PICUSID}/…` placeholder.
+- **Data Exfiltration:** realistic-looking PDF in `files/<base64(NUMERIC_ID)>___<base64(UUID)>.pdf`.
+- **URL Filtering:** no payload (`.yaml`-only export).
+
+### Step 4 — Validate
+
+See [Validation Checklist](#validation-checklist).
+
+### Step 5 — Package as AES-256-encrypted ZIP
+
+```
+<threat-name>/
+    threat.yaml
+    files/
+        <payload-file-1>
+        ...
+```
+
+**macOS / Linux (system `zip` only does ZipCrypto — Picus rejects it):**
+
+```bash
+7z a -tzip -mem=AES256 -p"picus" my_threat.zip <threat-name>/
+```
+
+**Windows (7-Zip):**
+
+```bash
+7z a -tzip -mem=AES256 -p"picus" my_threat.zip <threat-name>\
+```
+
+> **Password must be exactly `picus`. Any other password → 400 error on import.**
+
+> **Exception:** URL Filtering threats (no `files/`) export/import as `.yaml` only.
+
+---
+
+## Auto-pipeline (Linux + Windows Endpoint only)
+
+When the user provides a **detection rule or a plain-text goal** — not raw YAML — for
+**Linux Endpoint** or **Windows Endpoint**, the auto-pipeline turns it into an
+import-ready ZIP without hand-writing the YAML. For every other module, use the
+[hand-authoring workflow](#step-2--hand-author-threatyaml).
 
 ### Accepted input formats
-
-The skill auto-detects the format and routes through the correct parser:
 
 | Input | How it is detected | Parser |
 |---|---|---|
@@ -75,28 +204,21 @@ scripts/package.py              →  AES-256-encrypted ZIP with password `picus`
 
 ### Direct CLI invocation
 
-The skill provides a one-shot shell pipeline. Save the user's input as a file
-(`/tmp/user-input.spl`) and run:
-
 ```bash
-# Output campaign folder name (one word, no spaces recommended)
 CAMPAIGN=linux-sensitive-file-access-via-shell
 OUT=/tmp/$CAMPAIGN
 rm -rf $OUT && mkdir -p $OUT/files
+MODULE=linux
 
-# 1. Detect format
 FMT=$(python3 ~/.claude/skills/picus-threat-yaml/scripts/detect_format.py /tmp/user-input.spl)
 
-# 2. Parse
-python3 ~/.claude/skills/picus-threat-yaml/scripts/parse_${FMT}.py /tmp/user-input.spl \
-  > /tmp/actions.json
+python3 ~/.claude/skills/picus-threat-yaml/scripts/parse_${FMT}.py \
+  --module $MODULE /tmp/user-input.spl > /tmp/actions.json
 
-# 3. Build droppers (writes files/<name>.sh) and capture hashes
 python3 ~/.claude/skills/picus-threat-yaml/scripts/build_dropper.py \
   --actions-json /tmp/actions.json \
   --files-dir $OUT/files > /tmp/dropper-info.json
 
-# 4. Merge hashes into actions
 python3 -c '
 import json
 actions = json.load(open("/tmp/actions.json"))
@@ -110,15 +232,14 @@ for a in actions:
 json.dump(actions, open("/tmp/actions-with-hashes.json", "w"), indent=2)
 '
 
-# 5. Build threat.yaml inside the campaign folder
 python3 ~/.claude/skills/picus-threat-yaml/scripts/build_threat.py \
+  --module $MODULE \
   --title "Linux Sensitive File Access via Shell" \
   --description "Detects shell access to /etc/shadow, /etc/passwd, ..." \
   --severity High \
   --actions-json /tmp/actions-with-hashes.json \
   --output $OUT/threat.yaml
 
-# 6. Package as AES-256 encrypted ZIP (password: picus)
 python3 ~/.claude/skills/picus-threat-yaml/scripts/package.py \
   --campaign $OUT \
   --output /tmp/$CAMPAIGN.zip
@@ -126,170 +247,75 @@ python3 ~/.claude/skills/picus-threat-yaml/scripts/package.py \
 echo "Ready to import: /tmp/$CAMPAIGN.zip"
 ```
 
-The output is a Picus-importable ZIP, password `picus`, containing:
+> **Windows variant.** Swap `MODULE=windows`. The pipeline produces an `Endpoint Scenario`
+> threat with the 6-distro Windows `affected_platforms` block, the Windows
+> `keyword_queries` AND-NOT clause, and per-target `play_processes` (e.g. `reg.exe add …`,
+> `vssadmin Delete Shadows /All /Quiet`). Dropper extension defaults to `.bat`.
 
-```
-/tmp/$CAMPAIGN/
-    threat.yaml
-    files/
-        read_etc_shadow.sh
-        read_etc_passwd.sh
-        ...
-```
+### When to use the auto-pipeline
 
-### What the pipeline emits (in the YAML)
-
-The skill generates a **structurally valid Linux Endpoint Scenario** threat matching
-the PUMAKIT / BlackMatter canonical shape:
-
-- Module: `Linux Endpoint Scenario`
-- Severity: `High` by default
-- One **objective per UKC phase** (Credential Access, Discovery, Persistence, …)
-- Each action has:
-  - the **16-distro Linux `affected_platforms` block** (canonical constant)
-  - **action-level `result_condition`** with unquoted `true: unblocked / false: blocked`,
-    a `Terms:` list, and `%process-1%`
-  - **hash-based `keyword_queries`** with SHA-256, SHA-1, MD5, dropper name, target
-    path, wrapped in `((((...))))` with the `AND NOT ("pkill" OR "killall" OR ("rm" AND "-rf"))`
-    tail
-  - **`success_conditions.output:`** substring match (not `code: 0`)
-  - **`rewind_processes`** to clear history and the dropper
-- Campaign-level `result_condition` uses `Terms:` with `%objective-N%` references
-- No `comment:` field, no redundant `delay: 0` / `is_async: false` / `is_inverse: false`
-- Sub-technique is omitted from the YAML when empty
-
-### Worked example (user's SPL input)
-
-User input (`/tmp/user-input.spl`):
-
-```spl
-index=os_nix sourcetype=auditd type=EXECVE (a0="sh" OR a0="bash" OR a0="dash") a1="-c"
-| where match(execve_command, "/etc/(shadow|passwd|gshadow)|/proc/net/|/\\.ssh/|authorized_keys|\\.bash_history")
-| table _time host uid auid ppid comm exe execve_command
-```
-
-The pipeline produces 7 actions grouped into 3 objectives:
-
-| Objective | Action | MITRE | UKC |
-|---|---|---|---|
-| Credential Access | `read_etc_shadow` | TA0006 / T1003.008 | Credential Access |
-| Credential Access | `read_etc_gshadow` | TA0006 / T1003.008 | Credential Access |
-| Credential Access | `read_bash_history` | TA0006 / T1552.003 | Credential Access |
-| Discovery | `read_etc_passwd` | TA0007 / T1083 | Discovery |
-| Discovery | `enumerate_proc_net` | TA0007 / T1016 | Discovery |
-| Discovery | `list_ssh_directory` | TA0007 / T1083 | Discovery |
-| Persistence | `read_ssh_authorized_keys` | TA0003 / T1098.004 | Persistence |
-
-Each action has a hash-based `keyword_queries` entry, the 16-distro
-`affected_platforms` block, and a working `success_conditions: - output: <substring>`.
+- Input is SPL / Sigma / goal text.
+- Module is **Linux Endpoint Scenario** or **Windows Endpoint Scenario** (Endpoint Scenario).
+- User wants the full pipeline (dropper scripts, hashes, ZIP) generated automatically.
 
 ### When NOT to use the auto-pipeline
 
-- The user wants a non-Linux module (Windows / macOS / Kubernetes / Web / Cloud / …).
-  The pipeline currently emits only `Linux Endpoint Scenario`. For other modules,
-  fall back to the **hand-authoring workflow** below.
-- The user wants to author a custom threat from scratch (no detection rule to
-  start from).
-- The user wants to edit an existing threat.yaml directly.
+- Module is anything other than Linux/Windows Endpoint: **macOS Endpoint, Kubernetes
+  Endpoint, File Download, Email, Web Application, Data Exfiltration, URL Filtering, or
+  any Cloud Emulation**. Use hand-authoring + the matching per-module reference doc.
+- The user wants to author from scratch (no detection rule, just a goal/intent).
+- The user wants to edit an existing `threat.yaml` directly.
 
-### Reference docs used by the pipeline
+### Reference docs used by the auto-pipeline
 
 - `references/parsers/splunk-spl.md` — SPL grammar + extraction rules
 - `references/parsers/sigma.md` — Sigma `detection.selection` field mapping
 - `references/parsers/goal.md` — keyword extraction for plain-text goals
-- `references/mappings/linux-targets.md` — file → MITRE / UKC / output table
-- `references/mappings/linux-platforms.md` — the 16-distro block
+- `references/mappings/linux-targets.md` — Linux file → MITRE / UKC / output table
+- `references/mappings/linux-platforms.md` — the 16-distro Linux block
+- `references/mappings/windows-targets.md` — Windows target → MITRE / UKC / output / play_template
+- `references/mappings/windows-platforms.md` — the 6-distro Windows block
 - `references/mappings/output-patterns.md` — `success_conditions.output` picks
 - `references/success-conditions.md` — what `output:` is and why not `code: 0`
 
-### Examples
-
-Three example inputs are in `examples/` — the user's SPL, a Sigma rule, and a
-plain-text goal. Each one round-trips through the pipeline into a valid threat.
-
 ---
 
-## Step 1 — Identify the Attack Module
+## Quick reference — shared concepts
 
-Ask the user which module best fits. The module determines which fields and categories are available.
+These fields/conventions are common to most modules. **Always defer to the per-module
+doc for module-specific shape, keywords, or noise filters.**
 
-| Module | Best For |
-|---|---|
-| `Endpoint Scenario` | Windows process execution, lateral movement |
-| `Linux Endpoint Scenario` | Linux process execution |
-| `macOS Endpoint Scenario` | macOS process execution |
-| `Kubernetes Endpoint Scenario` | Kubernetes cluster attacks |
-| `File Download` | Delivering malicious file payloads via network |
-| `Email` | Phishing attachments or URL delivery |
-| `Web Application` | HTTP request-based attacks against web apps |
-| `Data Exfiltration` | Simulating data theft scenarios |
-| `URL Filtering` | Testing URL category filtering controls |
-| `Azure Cloud Emulation` | Azure ARM / Entra ID / m365 attack steps |
-| `AWS Cloud Emulation` | AWS attack command sequences |
-| `GCP Cloud Emulation` | GCP attack command sequences |
-
-**→ After choosing, read:** `references/modules/` for the module-specific field reference.
-
----
-
-## Step 2 — ZIP Archive Structure
-
-Every import (except standalone `.yaml` threats without remote files) must be a
-**password-protected ZIP** with this exact layout:
-
-```
-<threat-name>/
-    threat.yaml
-    files/
-        <payload-file-1>
-        <payload-file-2>
-        ...
-```
-
-Rules:
-- Root folder name = threat name (no spaces recommended)
-- `threat.yaml` must be at the root of that folder
-- All payload files go inside `files/`
-- The `file:` path in `remote_files` must match exactly (e.g., `files/payload.bin`)
-- ZIP must be AES-256 encrypted with password **`picus`** (hard requirement)
-
-> **Exception:** URL Filtering threats (no remote files) export/import as `.yaml` only.
-
----
-
-## Step 3 — threat.yaml Structure
-
-### Full Hierarchy
+### `threat.yaml` top-level hierarchy
 
 ```yaml
 campaign:
   name:               # required, unique per account, max 255 chars
-  module:             # required — see Module list
+  module:             # required — see Module list above
   severity:           # High | Medium | Low
   description:        # optional, max 2000 chars
   affected_os:        # list: Windows | Linux | macOS | AWS | Azure | GCP
   threat_actor:       # optional, must match Picus-known name (e.g. APT29)
   affected_products:  # optional list of product names known to Picus
   comment:            # optional internal note, max 255 chars
-  result_condition:   # optional, see Result Conditions section
+  result_condition:   # see Result Conditions
   objectives:         # REQUIRED — at least one
-    - type:           # free text (e.g. Collection, Execution, Discovery)
+    - type:           # free text or umbrella category (K8s)
       result_condition:
       actions:        # REQUIRED — at least one per objective
-        - name:       # internal ID, no spaces
-          title:      # human-readable display name
+        - name:
+          title:              # module-specific (omit on macOS Endpoint)
           description:
-          category:   # must match valid category for the module
-          tactic:     # MITRE ATT&CK tactic ID (e.g. TA0002)
-          technique:  # MITRE ATT&CK technique ID (e.g. T1059)
-          sub_technique:
-          ukc_phase:  # see UKC Phases list
-          is_atomic:  # true | false
+          category:           # must match valid category for the module
+          tactic:             # MITRE ATT&CK tactic ID (TAxxxx) — Endpoint modules
+          technique:          # MITRE ATT&CK technique ID (Txxxx) — Endpoint modules
+          sub_technique:      # optional MITRE sub-technique ID
+          ukc_phase:          # see UKC Phases list
+          is_atomic:
           affected_os:
           keyword_queries: []
           result_condition:
-          # --- Module-specific fields below ---
-          remote_files: []        # File Download, Email, Network, Data Exfil
+          # --- Module-specific fields ---
+          remote_files: []        # File Download, Email, Data Exfil
           play_processes: []      # Endpoint modules only
           rewind_processes: []    # Endpoint modules only
           steps: []               # Cloud modules only
@@ -302,19 +328,19 @@ campaign:
           data_type:              # Data Exfiltration only
 ```
 
----
+### Result conditions
 
-## Step 4 — Result Conditions
-
-Result conditions define pass/fail logic. They exist at **three levels**:
-campaign → objective → action (endpoint only).
+Result conditions define pass/fail logic at **three levels**: campaign → objective → action
+(action-level is Endpoint-only, references processes).
 
 References use **positional notation** starting at 1:
+
 - Campaign references objectives: `%objective-1%`, `%objective-2%`, …
 - Objective references actions: `%action-1%`, `%action-2%`, …
-- Action references processes: `%process-1%`, `%process-2%`, … (endpoint only)
+- Action references processes: `%process-1%`, `%process-2%`, … (Endpoint only)
 
 **Template:**
+
 ```yaml
 result_condition:
   "true": unblocked      # label when condition IS met
@@ -334,14 +360,27 @@ result_condition:
     Operator: and        # "and" = all must pass | "or" = any must pass
 ```
 
-> **Critical:** References must not exceed the count of actual items. If there are 2 actions,
-> `%action-3%` will cause an import error.
+> **Critical:** References must not exceed the count of actual items. If there are 2
+> actions, `%action-3%` will cause an import error.
 
----
+**Join operator per module:**
 
-## Step 5 — Remote Files
+| Module | Campaign-level join | Action-level join |
+|---|---|---|
+| Endpoint Scenario (Windows) | `and` | `and` |
+| Linux Endpoint Scenario | `and` | `and` |
+| macOS Endpoint Scenario | `and` | `and` |
+| Kubernetes Endpoint Scenario | **`or`** | `and` |
+| File Download | `or` | (no action-level) |
+| Email | `or` | (no action-level) |
+| Web Application | `or` | (no action-level) |
+| Data Exfiltration | `or` | (no action-level) |
+| URL Filtering | `or` | (no action-level) |
 
-Used in: File Download, Email, Network Infiltration, Data Exfiltration.
+### `remote_files`
+
+Used in File Download, Email, Data Exfiltration, and Endpoint modules for dropper
+payloads.
 
 ```yaml
 remote_files:
@@ -356,47 +395,16 @@ remote_files:
 |---|---|---|
 | `file` | **Yes** | Path inside ZIP (must match exactly) |
 | `path` | No | Destination filename on target system |
-| `is_executable` | No | Whether the file is an executable |
+| `is_executable` | No | Whether the file is an executable (Endpoint modules; omit on File Download / Email / Data Exfil) |
 | `is_downloaded` | No | Whether the file should be downloaded |
 | `skip_zip_extract` | No | Skip extraction if file is a nested ZIP |
 
 > **Tip:** If import fails due to filename encoding, use base64-encoded filenames —
 > the backend decodes them automatically.
 
----
+### Module → Valid categories
 
-## Step 6 — Module-Specific Templates
-
-**→ For full module templates and field details, read:**
-- `references/modules/endpoint.md` — Endpoint / Linux / macOS / Kubernetes
-- `references/modules/file-download-email-network.md` — File Download, Email, Network Infiltration
-- `references/modules/web-cloud.md` — Web Application, Cloud Emulation, URL Filtering, Data Exfiltration
-
----
-
-## Step 7 — Package as Password-Protected ZIP
-
-**macOS / Linux:**
-```bash
-zip -r -P picus my_threat.zip <threat-name>/
-```
-
-**Windows (7-Zip):**
-```bash
-7z a -p"picus" -tzip my_threat.zip <threat-name>\
-```
-
-> **IMPORTANT:** Password must be exactly `picus`. Any other password → 400 error on import.
-
----
-
-## Quick Reference — Accepted Values
-
-**→ For complete accepted values tables, read:** `references/accepted-values.md`
-
-### Module → Valid Categories (quick lookup)
-
-| Module | Valid Categories |
+| Module | Valid categories |
 |---|---|
 | Endpoint Scenario | `Attack Scenario`, `Lateral Movement Techniques (Windows)` |
 | Linux / macOS / Kubernetes Endpoint | `Attack Scenario` |
@@ -409,7 +417,7 @@ zip -r -P picus my_threat.zip <threat-name>/
 | AWS Cloud Emulation | `AWS` |
 | GCP Cloud Emulation | `GCP` |
 
-### MITRE ATT&CK Tactic IDs (quick lookup)
+### MITRE ATT&CK tactic IDs
 
 `TA0001` Initial Access · `TA0002` Execution · `TA0003` Persistence ·
 `TA0004` Privilege Escalation · `TA0005` Stealth · `TA0006` Credential Access ·
@@ -417,33 +425,51 @@ zip -r -P picus my_threat.zip <threat-name>/
 `TA0010` Exfiltration · `TA0011` Command and Control · `TA0040` Impact ·
 `TA0042` Resource Development · `TA0043` Reconnaissance · `TA0112` Defense Impairment
 
-### Severity: `High` | `Medium` | `Low`
+### Severity
 
-### Operating Systems: `Windows` | `Linux` | `macOS` | `AWS` | `Azure` | `GCP`
+`High` | `Medium` | `Low`
+
+### Operating systems
+
+`Windows` | `Linux` | `macOS` | `AWS` | `Azure` | `GCP`
+
+### UKC phases
+
+Collection · Command & Control · Credential Access · Defense Evasion · Delivery ·
+Discovery · Execution · Exfiltration · Exploitation · Impact · Lateral Movement ·
+Persistence · Privilege Escalation · Reconnaissance · Social Engineering · Weaponization
 
 ---
 
 ## Validation Checklist
 
-Before handing off the threat.yaml to the user, verify:
+Before handing off the `threat.yaml` to the user, verify:
 
 - [ ] `name` is unique (no duplicates in their account)
 - [ ] `module` matches one of the valid module strings exactly
-- [ ] `category` on each action is valid for the chosen module
+- [ ] `category` on each action is valid for the chosen module (see table above)
 - [ ] `affected_os` values are from the accepted OS list
 - [ ] Each `remote_files[].file` path matches a real file in `files/`
-- [ ] Result condition references (`%action-1%` etc.) don't exceed the item count
-- [ ] Endpoint actions have at least one `play_processes` entry with a `path`
-- [ ] Web Application actions have `request_content` pointing to a file in the ZIP
-- [ ] ZIP password is `picus` (remind the user)
+- [ ] Each `request_content` path matches a real `.req` file in `files/` (Web Application)
+- [ ] Result-condition references (`%action-1%`, `%objective-N%`, `%process-N%`) don't exceed the actual item count
+- [ ] Result-condition join operator matches the module table above
+- [ ] `keyword_queries` follows the canonical template for the module
+- [ ] Module-specific AND-NOT noise filter is present and correct for the module
+- [ ] Endpoint actions have at least one `play_processes` entry with a `path` or `arguments`
+- [ ] File Download / Email actions have `remote_files[].is_downloaded: true`
+- [ ] ZIP password is `picus` (AES-256 via `7z -mem=AES256 -tzip`)
+- [ ] Module-specific items in the per-module reference doc's authoring checklist pass
 
 ---
 
-## Common Errors & Fixes
+## Common errors & fixes
 
 | Error | Cause | Fix |
 |---|---|---|
-| `400 — invalid archive` | Wrong ZIP password or corrupt archive | Re-zip with `-P picus` / `-p"picus"` |
+| `400 — invalid archive` | Wrong ZIP password or ZipCrypto (not AES-256) | Re-zip with `7z a -tzip -mem=AES256 -p"picus"` |
 | `400 — missing threat.yaml` | `threat.yaml` not at root of the inner folder | Check ZIP structure — must be `<name>/threat.yaml` |
 | `400 — invalid YAML` | Syntax error or missing required field | Check indentation, required fields (`name`, `module`, `objectives`, `actions`) |
 | `File not found in archive` | `remote_files.file` path doesn't match | Ensure `file: files/payload.bin` matches actual ZIP path |
+| Result condition reference error | `%action-N%` or `%objective-N%` exceeds item count | Renumber so max reference ≤ actual item count |
+</content>
+</invoke>

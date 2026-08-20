@@ -46,10 +46,23 @@ def _hashes(data: bytes) -> dict[str, str]:
 
 
 def build_dropper(action: dict, files_dir: Path) -> dict:
-    """Write a dropper for one action and return its hashes + path."""
+    """Write a dropper for one action and return its hashes + path.
+
+    Extension: `.bat` for Windows actions, `.sh` for Linux/others. Detected
+    by the action's `shell_path` (Windows paths start with `C:\\` or contain
+    `\\Windows\\`) or by an explicit `module` field on the action.
+    """
     name = action["name"]
     target_path = action["target_path"]
-    dropper_name = f"{name}.sh"
+    # Windows if the action names itself with a Windows path or the module
+    # field says so.
+    is_windows = (
+        action.get("module") == "windows"
+        or "\\" in action.get("shell_path", "")
+        or action.get("os_name") == "Windows"
+    )
+    ext = ".bat" if is_windows else ".sh"
+    dropper_name = f"{name}{ext}"
 
     # First pass: template without sha256 hash.
     body = DROPPER_TEMPLATE.format(

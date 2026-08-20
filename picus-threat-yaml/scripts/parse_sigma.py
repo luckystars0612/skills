@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """parse_sigma.py — Extract ActionSpec list from a Sigma rule YAML.
 
+Module-aware: pass `--module windows` for Windows Sigma rules. The default
+`--module linux` keeps the historical behaviour.
+
 Usage:
-    python parse_sigma.py <rule.yml> [--timeout 15] > actions.json
+    python parse_sigma.py <rule.yml> [--module linux|windows] [--timeout 15] > actions.json
 """
 
 from __future__ import annotations
@@ -15,8 +18,12 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent))
-from build_threat import ActionSpec, lookup_target, tech_id_only  # noqa: E402
-from parse_spl import SHELL_BINARY_MAP, _expand_paren_groups, _normalize_target, _slug_for, _resolve_target_path  # noqa: E402
+from build_threat import ActionSpec, tech_id_only  # noqa: E402
+from parse_spl import (
+    LINUX_SHELL_BINARY_MAP, WINDOWS_SHELL_BINARY_MAP,
+    _expand_paren_groups, _normalize_target, _slug_for,
+)  # noqa: E402
+from profiles import get_profile  # noqa: E402
 
 
 # A tiny YAML loader — only good enough for Sigma rules. Requires PyYAML if
@@ -30,24 +37,17 @@ def _load_yaml(text: str) -> dict[str, Any]:
 
 
 def _regex_load(text: str) -> dict[str, Any]:
-    """Extremely minimal Sigma loader — looks for top-level detection.selection.
-
-    Only handles the simple shapes this skill cares about. Users with odd Sigma
-    rules should install PyYAML.
-    """
+    """Extremely minimal Sigma loader — looks for top-level detection.selection."""
     out: dict[str, Any] = {"detection": {"selection": {}, "filter": {}, "condition": ""}}
-    # Title
     m = re.search(r"^\s*title\s*:\s*(.+)$", text, re.MULTILINE)
     if m:
         out["title"] = m.group(1).strip()
-    # detection: block heuristic — collect 'CommandLine|contains:' list
     sec = re.search(
         r"^\s*selection\s*:\s*\n((?:\s{4,}.+\n)+)",
         text, re.MULTILINE,
     )
     if sec:
         body = sec.group(1)
-        # Look for `CommandLine|contains:` followed by a list
         m2 = re.search(r"CommandLine\|contains\s*:\s*\n((?:\s+-\s+.+\n)+)", body)
         if m2:
             items = re.findall(r"-\s+(.+)", m2.group(1))
@@ -56,71 +56,75 @@ def _regex_load(text: str) -> dict[str, Any]:
 
 
 def _extract_targets(detection: dict[str, Any]) -> list[str]:
-    """Extract target file paths from the detection selection."""
+    """Extract target file paths / process names from the detection selection."""
     sel = detection.get("selection", {}) or {}
     targets: list[str] = []
 
-    # CommandLine|contains: list
     items = sel.get("CommandLine|contains") or sel.get("CommandLine|contains|all") or []
     if isinstance(items, str):
         items = [items]
     for item in items:
-        # Strip leading regex meta-chars when the user passed a literal.
-        if "/" in item or "\\." in item:
+        if "/" in item or "\\" in item or "." in item:
             targets.append(item)
 
-    # CommandLine|endswith: list
     for item in sel.get("CommandLine|endswith") or []:
-        if "/" in item:
-            targets.append(item)
+        targets.append(item)
 
-    # CommandLine|re: regex
     for pat in sel.get("CommandLine|re") or []:
         targets.extend(_expand_paren_groups(pat))
 
     return targets
 
 
-def _extract_shells(detection: dict[str, Any]) -> list[str]:
+def _extract_shells(detection: dict[str, Any], module: str) -> list[str]:
+    """Extract process binaries from Image|endswith / Image|contains etc."""
     sel = detection.get("selection", {}) or {}
     candidates: list[str] = []
+    binary_map = WINDOWS_SHELL_BINARY_MAP if module == "windows" else LINUX_SHELL_BINARY_MAP
+    default = "cmd.exe" if module == "windows" else "bash"
     for field in ("Image|endswith", "Image|contains", "ProcessName|endswith"):
         for v in sel.get(field) or []:
             base = Path(v).name
-            if base in SHELL_BINARY_MAP and base not in candidates:
+            if base in binary_map and base not in candidates:
                 candidates.append(base)
-    return candidates or ["bash"]
+    return candidates or [default]
 
 
-def parse_sigma(text: str, timeout: int = 15) -> list[ActionSpec]:
+def parse_sigma(text: str, timeout: int = 15, module: str = "linux") -> list[ActionSpec]:
     rule = _load_yaml(text)
     detection = rule.get("detection", {}) or {}
+    profile = get_profile(module)
     targets = _extract_targets(detection)
-    shells = _extract_shells(detection)
+    shells = _extract_shells(detection, module)
+    binary_map = WINDOWS_SHELL_BINARY_MAP if module == "windows" else LINUX_SHELL_BINARY_MAP
+    default_flag = "-Command" if module == "windows" else "-c"
+    default_binaries = ("cmd.exe", "powershell.exe") if module == "windows" else ("bash", "sh", "dash")
 
     if not targets:
         return []
 
     specs: list[ActionSpec] = []
-    shell = SHELL_BINARY_MAP.get(shells[0], f"/bin/{shells[0]}")
+    shell = binary_map.get(shells[0], f"/usr/bin/{shells[0]}" if module == "linux" else f"C:\\Windows\\System32\\{shells[0]}")
     seen: set[str] = set()
     for tok in targets:
         norm = _normalize_target(tok)
-        resolved = _resolve_target_path(norm)
-        if resolved in seen:
+        row = profile.lookup_target(norm)
+        resolved = row.canonical_path
+        if row.target_regex in seen:
             continue
-        seen.add(resolved)
-        row = lookup_target(norm)
+        seen.add(row.target_regex)
         name = _slug_for(row.display_name)
         specs.append(ActionSpec(
             name=name,
             title=f"{row.display_name} via Shell",
-            description=(f"Simulates shell access to {resolved} for Sigma rule "
-                         f"'{rule.get('title', '')}'. Covers {row.tactic} "
-                         f"{tech_id_only(row.technique, row.sub_technique)} "
-                         f"({row.ukc_phase})."),
+            description=(
+                f"Simulates shell access to {resolved} for Sigma rule "
+                f"'{rule.get('title', '')}'. Covers {row.tactic} "
+                f"{tech_id_only(row.technique, row.sub_technique)} "
+                f"({row.ukc_phase})."
+            ),
             shell_path=shell,
-            shell_flag="-c",
+            shell_flag=default_flag,
             target_path=resolved,
             target_regex=norm,
             timeout=timeout,
@@ -130,7 +134,9 @@ def parse_sigma(text: str, timeout: int = 15) -> list[ActionSpec]:
             ukc_phase=row.ukc_phase,
             is_privileged=row.is_privileged,
             expected_output=row.expected_output,
-            binaries=tuple(shells) if shells else ("bash", "sh", "dash"),
+            binaries=tuple(shells) if shells else default_binaries,
+            play_path=row.play_path or "",
+            play_arguments=row.play_arguments or "",
         ))
     return specs
 
@@ -138,10 +144,12 @@ def parse_sigma(text: str, timeout: int = 15) -> list[ActionSpec]:
 def main() -> None:
     p = argparse.ArgumentParser(description="Parse a Sigma rule into ActionSpec JSON.")
     p.add_argument("input")
+    p.add_argument("--module", default="linux", choices=["linux", "windows"],
+                   help="Module (default: linux).")
     p.add_argument("--timeout", type=int, default=15)
     args = p.parse_args()
     text = Path(args.input).read_text(encoding="utf-8", errors="replace")
-    specs = parse_sigma(text, timeout=args.timeout)
+    specs = parse_sigma(text, timeout=args.timeout, module=args.module)
     print(json.dumps([{
         "name": s.name,
         "title": s.title,
@@ -158,6 +166,8 @@ def main() -> None:
         "is_privileged": s.is_privileged,
         "expected_output": s.expected_output,
         "binaries": list(s.binaries),
+        "play_path": s.play_path,
+        "play_arguments": s.play_arguments,
     } for s in specs], indent=2))
 
 
