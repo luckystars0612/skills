@@ -75,6 +75,48 @@ workflow.
 
 ---
 
+### [cve-hunt](cve-hunt/) — Find new CVEs by attacking the boundary of an existing fix
+
+Advisory-driven hunt for **new** vulnerabilities in a framework/library —
+variants, incomplete fixes, and patch bypasses of an existing CVE — then prove
+them **live in Docker** and package a submittable report. Distinct from a generic
+code audit: it starts from a published fix (the guard reveals the primitive and
+the boundary the maintainers assumed safe) and attacks where that assumption is
+wrong. `disable-model-invocation: true` — invoke explicitly.
+
+**Triggers on**
+- *"find a new CVE / 0-day"*, *"bypass this patch"*, *"is this fix complete"*
+- *"variant analysis"*, *"incomplete-fix / patch bypass"*
+- *"reproduce and report a framework RCE / auth-bypass / SSTI"*
+
+**What it does**
+- Studies recent advisories + reads the actual fix code; confirms the current tip
+- Generates falsifiable, boundary-focused hypotheses (guard gated on the wrong
+  condition or tree-shaken out, sibling path unguarded, allowlist too narrow,
+  normalization mismatch, secret-less hash ≠ auth, ineffective mitigation, SSTI)
+- **Requires live Docker reproduction** before any finding is claimed; records the
+  hypotheses that die
+- Re-proves with the real mainstream library, locks the affected-version range
+  (verified vs inferred), and packages: from-scratch `docker-compose`,
+  dependency-free `exploit.py`, screen recording, self-contained zip, and an
+  `ADVISORY.md` draft the human submits (never auto-posted upstream)
+
+**Slash commands** (in [cve-hunt/commands/](cve-hunt/commands/))
+- `/cve-hunt <target> [CVE/subsystem]` — the full hunt
+- `/cve-matrix <poc-dir> <pkg> <versions…>` — build+exploit sweep → affected-range matrix
+- `/cve-package <poc-dir>` — package a confirmed finding for submission
+
+**Quick start**
+```bash
+cat cve-hunt/SKILL.md                 # the methodology
+ls cve-hunt/templates/                # Dockerfile, docker-compose, exploit.py, version-sweep.sh, ADVISORY.md, ...
+cp cve-hunt/commands/*.md ~/.claude/commands/   # enable the slash commands (skip README.md)
+```
+
+See [cve-hunt/SKILL.md](cve-hunt/SKILL.md) for the full workflow.
+
+---
+
 ## Adding a New Skill
 
 1. Create a new sub-directory at the repo root named after the skill, in
