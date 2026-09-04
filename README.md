@@ -117,6 +117,46 @@ See [cve-hunt/SKILL.md](cve-hunt/SKILL.md) for the full workflow.
 
 ---
 
+### [win-lpe-hunt](win-lpe-hunt/) — Hunt Windows LPE via binary analysis + hypothesis generation
+
+Find **local privilege escalation** in Windows SYSTEM services, antivirus/EDR agents,
+vendor updaters, profile/logon services, installers, and kernel drivers. Encodes the
+confused-deputy bug class — *a privileged process does a file/registry op on a
+user-influenceable path, and the user controls the namespace underneath it* — and turns a
+target binary into many falsifiable hypotheses, each pairing a privileged op × a redirect
+primitive × a race-win × a SYSTEM conversion.
+
+**Triggers on**
+- *"find LPE / privilege escalation in this binary"*, *"audit this SYSTEM service / AV / updater / driver"*
+- *"give me new LPE ideas from this target"*, *"is this file op exploitable"*
+- Any Windows binary that runs as SYSTEM/admin and touches user-controlled paths
+
+**What it does**
+- Opens the binary with the `idalib` IDA MCP and maps the surface: privileged file/registry
+  ops, the **presence/absence of impersonation** around each (the fastest tell), attacker-input
+  data-flow to path sinks, and weak-DACL named sections
+- Emits **5–8+ ranked, falsifiable hypotheses** — each with an evidence line, a kill condition,
+  the cheapest disproof, and a rank — then kills the cheap ones statically
+- Confirms survivors dynamically with Procmon; prefers the deterministic **Cloud Filter
+  (cfapi) FETCH_DATA race oracle** over oplocks
+- Converts the primitive to SYSTEM, runs validation gates, and writes an impact-first report.
+  Reproduced-or-it-didn't-happen; VERIFIED vs INFERRED on every claim; VM-only detonation
+
+**Slash command** (in [win-lpe-hunt/commands/](win-lpe-hunt/commands/))
+- `/win-lpe-hunt <binary | product | "survey my box"> [subsystem]` — the full hunt
+
+**Quick start**
+```bash
+cat win-lpe-hunt/SKILL.md                 # the six-phase loop
+cat win-lpe-hunt/references/PRIMITIVES.md # privileged ops, redirects, race-wins, conversions + idalib queries
+cat win-lpe-hunt/references/HYPOTHESIS_TEMPLATE.md   # format + worked example + starter hypotheses
+cp win-lpe-hunt/commands/*.md ~/.claude/commands/    # enable the slash command
+```
+
+See [win-lpe-hunt/SKILL.md](win-lpe-hunt/SKILL.md) for the full workflow.
+
+---
+
 ## Adding a New Skill
 
 1. Create a new sub-directory at the repo root named after the skill, in
