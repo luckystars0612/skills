@@ -11,6 +11,30 @@ matching skill becomes available via the `Skill` tool or the `/<skill-name>`
 
 ---
 
+## Install
+
+Install every skill in the repo (and its slash commands) into Claude Code with one
+script. Skills go to `~/.claude/skills/<name>/` and slash commands to
+`~/.claude/commands/`. Run from the repo root.
+
+**Linux / macOS**
+```bash
+./install.sh            # or: ./install.sh --dry-run
+```
+
+**Windows (PowerShell)**
+```powershell
+.\install.ps1           # or: .\install.ps1 -DryRun
+# if execution is blocked:  powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+Both honor `CLAUDE_HOME` to target a non-default location (default `~/.claude`), skip
+`commands/README.md`, and overwrite any existing copy of a skill. A skill is detected as
+any top-level directory containing a `SKILL.md`, so new skills are picked up automatically.
+Start a new Claude Code session afterward to load them.
+
+---
+
 ## Repository Layout
 
 ```
