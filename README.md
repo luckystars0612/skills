@@ -181,6 +181,52 @@ See [win-lpe-hunt/SKILL.md](win-lpe-hunt/SKILL.md) for the full workflow.
 
 ---
 
+### [fw-iot-hunt](fw-iot-hunt/) — Hunt high/critical bugs in IoT/OT firmware
+
+Find **remote/root vulnerabilities in embedded firmware** — routers, NAS, cameras,
+gateways, industrial devices — by binary + source analysis and emulation. Encodes the
+recurring embedded target model: *a root network daemon turns attacker input
+(HTTP/JSON-RPC/ubus/CWMP/UPnP/UDP/NVRAM) into a privileged operation without validating
+it or without enforcing auth*. Distilled from reproduced findings (D-Link unauth
+auth-bypass + file-write, TerraMaster TOS Go-daemon unauth root RCE, Cudy TR3000 app-RPC
+root command injection).
+
+**Triggers on**
+- *"find bugs / RCE in this firmware"*, *"audit this router/NAS/camera image"*
+- *"extract and analyze this firmware"*, *"emulate this device and exploit it"*
+- Any firmware blob, embedded web server, RPC/ubus/CWMP/UPnP surface, or "find a firmware worth auditing"
+
+**What it does**
+- Picks a **LATEST/LTS** target (never EOL); favors less-fuzzed / newer surface over
+  saturated flagship web stacks
+- Extracts the rootfs (SquashFS/UBI/JFFS2/CramFS, vendor-obfuscated variants, obfuscated
+  Lua, RTOS monolith, Go/Node backends) and confirms the version
+- Maps the root network daemons with the `idalib` IDA MCP: input sources, privileged
+  sinks (cmd-exec / overflow / format-string / file-write / SSRF), input→sink taint, and
+  **auth reachability** (missing-return, per-controller gap, trust-on-first-use)
+- Emits **5–8+ ranked, falsifiable hypotheses**, then **disclosure-checks before claiming
+  novelty** (novel vs known-unpatched-in-latest vs duplicate — a mandatory gate)
+- Confirms survivors on a running device — **FirmAE full-system** or **qemu-user+chroot**
+  daemon-stack bring-up — proving the primitive (root marker / controlled crash / on-disk
+  artifact). Reproduced-or-it-didn't-happen; VERIFIED vs INFERRED; never auto-submit
+
+**Slash command** (in [fw-iot-hunt/commands/](fw-iot-hunt/commands/))
+- `/fw-iot-hunt <firmware | vendor+model | rootfs | "find a firmware to audit"> [component]` — the full hunt
+
+**Quick start**
+```bash
+cat fw-iot-hunt/SKILL.md                      # the six-phase loop
+cat fw-iot-hunt/references/EXTRACTION.md      # unpacking recipes + vendor-obfuscation traps
+cat fw-iot-hunt/references/BUG_CLASSES.md     # the classes + 3 worked case studies + idalib queries
+cat fw-iot-hunt/references/EMULATION.md       # FirmAE + qemu-user/chroot + gotchas
+ls  fw-iot-hunt/templates/                    # stack_emulate.sh, ADVISORY.md
+cp  fw-iot-hunt/commands/*.md ~/.claude/commands/   # enable the slash command
+```
+
+See [fw-iot-hunt/SKILL.md](fw-iot-hunt/SKILL.md) for the full workflow.
+
+---
+
 ## Adding a New Skill
 
 1. Create a new sub-directory at the repo root named after the skill, in
