@@ -227,6 +227,52 @@ See [fw-iot-hunt/SKILL.md](fw-iot-hunt/SKILL.md) for the full workflow.
 
 ---
 
+### [byovd-killer](byovd-killer/) — Turn a vulnerable driver into an AV/EDR process killer
+
+Reverse a signed Windows kernel driver into a working **BYOVD** (Bring Your Own Vulnerable
+Driver) process/EDR killer. Encodes the target model distilled from the `BlackSnufkin/BYOVD`
+collection (24 reproduced killers + its A–Z methodology): *a signed third-party driver exposes a
+kernel primitive — a process-terminate IOCTL, a handle-table stomp, or arbitrary physical/virtual
+memory R/W — to a user-mode caller with weak or absent authorization, and it's repurposed to kill
+a PPL/EDR process user mode can't touch, because the action runs in ring 0 under the driver's
+signature.*
+
+**Triggers on**
+- *"is this driver a process killer"*, *"reverse this .sys into a BYOVD"*, *"build an EDR killer from this driver"*
+- *"map the IOCTL dispatch / find the kill IOCTL"*, *"write a byovd-lib DriverConfig for this driver"*
+- A `.sys` path, a driver/product name, or a LOLDrivers entry; extending the BYOVD repo with a new `*-Killer`
+
+**What it does**
+- **Import-screens** the driver (the two-import terminate test, handle-stomp imports, or
+  physical-memory-map imports) as a cheap go/no-go before deep reversing
+- Reverses the **six-step dispatch chain** (DriverEntry → device/symlink → MajorFunction table →
+  IOCTL handler → the dangerous sink) with idalib, extracting the three facts a killer needs —
+  **device path `\\.\X`**, **IOCTL/command code**, **input-buffer PID offset/width/encoding** —
+  plus the **auth gap**, each VERIFIED against the binary
+- **Classifies the kill into a tier** that decides the PoC shape: Tier 1 direct kill IOCTL (thin
+  `byovd-lib` `DriverConfig`), Tier 2 handle/object stomp (standalone), Tier 3 arbitrary memory
+  R/W → data-only Shadow-SSDT hijack (HVCI-safe) or Win32k-stub shellcode `KernelCall`
+- **Builds** the killer (workspace member or standalone) and **validates on a VM** — kills a benign
+  target first, then the EDR/Defender process; reports PPL/HVCI behavior honestly.
+  Reproduced-or-it-didn't-happen; VERIFIED vs INFERRED; VM-only detonation (it disables security software)
+
+**Slash command** (in [byovd-killer/commands/](byovd-killer/commands/))
+- `/byovd-killer <.sys | driver/product | LOLDrivers entry> [IOCTL/subsystem]` — the full reverse→build→validate
+
+**Quick start**
+```bash
+cat byovd-killer/SKILL.md                       # the six-phase loop
+cat byovd-killer/references/DRIVER_ANATOMY.md   # the reverse chain + idalib queries + PID-offset table
+cat byovd-killer/references/KILL_PRIMITIVES.md  # the tiered catalog (direct kill / handle stomp / physical R/W)
+cat byovd-killer/references/BYOVD_LIB.md         # DriverConfig trait, the 5 IOCTL shapes, build_ioctl_input recipes
+ls  byovd-killer/templates/                      # killer_main.rs, DRIVER_PROFILE.md
+cp  byovd-killer/commands/*.md ~/.claude/commands/   # enable the slash command
+```
+
+See [byovd-killer/SKILL.md](byovd-killer/SKILL.md) for the full workflow.
+
+---
+
 ## Adding a New Skill
 
 1. Create a new sub-directory at the repo root named after the skill, in
