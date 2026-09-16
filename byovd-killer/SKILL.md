@@ -148,6 +148,13 @@ Pick the tier from `references/KILL_PRIMITIVES.md`; it decides the PoC shape:
   page-table walk), then the kill layer. `references/KILL_PRIMITIVES.md` carries the physical-
   R/W helpers, CR3 discovery, export resolution, SSDT/stub hijack, and the two-stage shellcode
   recipe as reproduced in `Astra64-Killer` and `Ktapi-Killer`.
+- **Tier 3 Defender-specific (24H2+):** for a complete Defender kill that survives reboot, the
+  PoC must: (a) neuter WdFilter's tamper protection CM callback (section 3d in
+  `references/KILL_PRIMITIVES.md`), (b) disable all 6 services via kernel registry writes
+  (section 3e), (c) clear FailureActions, (d) run a multi-round kill loop with delays matching
+  SCM FailureActions timing (section 3e), and (e) follow SSDT safety rules — restore between
+  operations, skip ObfDereferenceObject (section 3f). On 24H2, CM callbacks use a linked list
+  (not EX_CALLBACK array), function pointer at node+0x28.
 
 Match the repo's conventions: a `README.md` per killer (SHA256, LOLDrivers link, IOCTL, usage),
 the `.sys` committed next to the binary, `opt-level="z"` + `lto` + `strip` + `panic="abort"`.

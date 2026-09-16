@@ -115,6 +115,27 @@ it plainly in the write-up.
 
 ---
 
+## Windows 11 24H2 (build 26100+) structure offsets
+
+These offsets were verified via kernel debugging on 24H2 and differ from some older builds:
+
+- **KLDR_DATA_TABLE_ENTRY** (for `PsLoadedModuleList` walk):
+  - InLoadOrderLinks (LIST_ENTRY): +0x00
+  - DllBase: +0x30
+  - SizeOfImage: +0x40
+  - BaseDllName (UNICODE_STRING): Length at +0x58, Buffer pointer at +0x60
+
+- **CM callback list node** (for tamper protection bypass):
+  - LIST_ENTRY: +0x00
+  - Callback function pointer: +0x28
+  - Note: 24H2 uses a **linked list**, not the EX_CALLBACK array (CmpCallBackVector) from older builds
+
+- **MiShowBadMapper** (24H2 driver-mapping check):
+  - Astra64 bypasses this because it uses MDL-based mapping (`ZwMapViewOfSection`), not `MmMapIoSpace`
+  - Drivers using `MmMapIoSpace` on 24H2 may trigger `MiShowBadMapper` and fail to map physical memory
+
+---
+
 ## Live confirmation with WinDbg (optional, on a VM kernel target)
 `open_kd_session`, then:
 - `!drvobj \Driver\X 2` — dump the MajorFunction table; confirm your dispatch address.

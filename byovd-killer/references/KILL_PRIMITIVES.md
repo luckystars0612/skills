@@ -127,11 +127,73 @@ the terminate is `PsTerminateProcess` invoked from a hijacked kernel context —
   `Ktapi-Killer` (used `NtGdiSetMagicColors` on 25H2 build 26200 after the blog's
   `NtUserFrostCrashedWindow`/`NtUserSetGestureConfig` stubs were absent).
 
-### 3d. PoC shape
+### 3d. Defeating WdFilter Tamper Protection (required before registry writes)
+
+On Win11 24H2+, WdFilter.sys registers a `CmRegisterCallbackEx` callback that blocks
+`ZwSetValueKey` on Defender service registry keys (WinDefend, WdNisSvc, WdFilter, etc.).
+This must be neutered **before** any registry-based service disabling.
+
+**How to find and patch it (data-only, HVCI-safe):**
+1. **Find `CmUnRegisterCallback`** in ntoskrnl exports.
+2. **Scan its code for RIP-relative references** (REX.W prefix 0x48/0x4C, opcode 0x8D/0x8B,
+   ModRM & 0xC7 == 0x05) → these point to the CM callback list head.
+3. **Walk the linked list** (LIST_ENTRY at node+0x00). On 24H2, CM callbacks use a **linked
+   list** (NOT the EX_CALLBACK array from older builds). The callback function pointer is at
+   **node offset +0x28**.
+4. **Find WdFilter's module** via `PsLoadedModuleList` walk (KLDR_DATA_TABLE_ENTRY: DllBase
+   +0x30, SizeOfImage +0x40, BaseDllName at +0x58/+0x60). Compare each node's function
+   pointer against WdFilter's address range [base, base+size).
+5. **Replace the function pointer** at node+0x28 with a `xor eax,eax; ret` gadget (31 C0 C3
+   or 33 C0 C3) found in ntoskrnl's `.text` section. This makes the callback return
+   STATUS_SUCCESS for all registry operations. Data-only patch (modifies pool data, not code)
+   → HVCI-safe.
+
+### 3e. Complete Defender kill chain (disable services + kill processes)
+
+After neutering tamper protection, disable all 6 Defender services via kernel registry writes
+and clear their FailureActions to prevent SCM restart loops:
+
+**Services to disable** (set `Start` = 4 via `ZwOpenKey` + `ZwSetValueKey`):
+```
+WinDefend, WdNisSvc, WdFilter, SecurityHealthService, Sense, MDCoreSvc
+```
+Note: the real service name for `MpDefenderCoreService.exe` is **`MDCoreSvc`** (not
+`MpDefenderCoreService`). Use `!reg findkcb` in WinDbg to verify.
+
+**FailureActions clearing**: Write `FailureActions` as REG_BINARY with 16 bytes of zeros
+(cActions=0). Without this, SCM FailureActions specifies 3 restart attempts with delays of
+1s, 10s, and 60s — processes come back even after killing them.
+
+**SCM caching caveat**: SCM caches service config in memory. Registry writes (Start=4) only
+take effect **after reboot**. For the current session, a **multi-round kill loop** is needed:
+```
+Round 0: kill immediately
+Round 1: wait 2s, kill respawns (catches 1s FailureActions delay)
+Round 2: wait 12s, kill respawns (catches 10s delay)
+Round 3: wait 65s, kill respawns (catches 60s delay)
+```
+After reboot, the registry changes prevent the services from starting at all.
+
+### 3f. SSDT safety rules (critical — violating these causes BSOD)
+
+- **MUST restore SSDT entry + IAT pointer between every operation group.** Leaving the hijack
+  active during sleep/wait means any thread calling the hijacked syscall (e.g.
+  `NtUserSetWindowPos`) gets redirected to whatever kernel function is currently in the IAT
+  (PsTerminateProcess, ZwSetValueKey, etc.) with garbage arguments → instant BSOD. The hijack
+  window must be milliseconds, not seconds.
+- **Skip `ObfDereferenceObject` after `PsTerminateProcess`.** `PsTerminateProcess` initiates
+  async cleanup; the EPROCESS can be freed on another core before the separate
+  `ObfDereferenceObject` syscall executes from user mode → BSOD 0x3B
+  (SYSTEM_SERVICE_EXCEPTION). Accept the minor reference leak.
+- **Restore SSDT+IAT during kill loop delays.** The kill loop can run for ~80 seconds total.
+  Re-patch only for the brief kill windows in each round.
+
+### 3g. PoC shape
 Standalone crate (its own `[workspace]`, `[profile.release]`), `windows` crate for the Win32
 surface. No `byovd-lib`. Structure: driver R/W wrapper → page-table walk → kernel discovery →
-hijack install → kill loop over targets → restore. Default targets are the Defender set
-(`MsMpEng.exe`, `MpDefenderCoreService.exe`, `SecurityHealthService.exe`, `MsSense.exe`).
+tamper protection bypass → service disable → hijack install → kill loop over targets → restore.
+Default targets are the Defender set (`MsMpEng.exe`, `MpDefenderCoreService.exe`,
+`SecurityHealthService.exe`, `MsSense.exe`).
 
 **PPL/HVCI.** PPL: yes. HVCI: **data-only sub-tier is HVCI-safe**; the shellcode sub-tier needs
 a writable+executable kernel target and can be blocked by HVCI/KDP depending on where it writes —
