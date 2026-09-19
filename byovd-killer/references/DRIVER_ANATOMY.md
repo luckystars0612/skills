@@ -21,6 +21,17 @@ with `survey_binary`.
   `HalTranslateBusAddress`, `MmGetPhysicalAddress`. MSR/CR intrinsics won't import — if the table
   is thin, `find_regex` the disassembly for `0F 32` (rdmsr), `0F 30` (wrmsr), `0F 20`/`0F 22` (cr
   moves).
+- **UAF candidate:** `ExAllocatePoolWithTag`/`ExFreePoolWithTag` with list manipulation
+  (`InsertTailList`/`RemoveEntryList`) across multiple dispatch paths (CREATE/CLOSE/IOCTL). The
+  tell is inconsistent or absent locking — check `ExAcquireFastMutex`/`KeAcquireSpinLock` xrefs
+  against the list-access functions.
+- **PCI/SMN/SMU candidate (AMD SoC):** `HalSetBusDataByOffset` + `HalGetBusDataByOffset` (HAL).
+  If the driver writes PCI config offsets 0xC4/0xC8 on bus 0 device 0, it accesses AMD's SMN
+  (System Management Network) — full SoC register bus including GPU, SDMA, and SMU firmware
+  mailbox. Check for a lookup table restricting PCI offsets (`dword_XXXX[] = {0xC4, 0xC8}`).
+- **Info leak candidate:** Look for `IoStatus.Information = OutputBufferLength` in a shared
+  dispatch epilogue (not per-IOCTL). If all IOCTLs reach this path, METHOD_BUFFERED IOCTLs
+  leak uninitialized NonPagedPool residue → KASLR bypass.
 No hit in any bucket ⇒ probably not a killer; report and stop.
 
 ## Step 1 — DriverEntry

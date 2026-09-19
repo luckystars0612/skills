@@ -204,9 +204,240 @@ handler for the input struct (interface type, bus number, physical addr, size) a
 condition. The kernel-side hijack targets (SSDT, Win32k stubs) are discovered at runtime by the
 PoC over the R/W primitive, not statically in the driver.
 
+### 3h. UAF (Use-After-Free) → kernel pool R/W primitive
+
+**Signature.** A driver maintains a kernel-mode linked list (process tracking, session list,
+client list) protected by inadequate synchronization — missing mutex, missing interlocked ops,
+or a FastMutex only on some paths. The list nodes are allocated from NonPagedPool. The UAF
+arises when a node is freed (on handle close / process detach) while another thread still
+holds a pointer to it via the list.
+
+**Platform independence.** Unlike physical-memory-map Tier 3 killers, a UAF-based chain
+exploits **software bugs**, not hardware interfaces. It works on **any x64 Windows system**
+(AMD and Intel alike) and cannot be detected by import screening for `MmMapIoSpace` or
+`ZwMapViewOfSection`. The only prerequisite is the vulnerable driver.
+
+**How it works (the AMDRyzenMasterDriver v2.6 pattern):**
+
+The driver tracks callers in a singly-linked list of pool-allocated nodes. Three IRP handlers
+access the list concurrently with **zero synchronization**:
+
+| Handler | Operation | Lock |
+|---------|-----------|------|
+| IRP_MJ_CREATE | Allocate node, walk to tail, append | **NONE** |
+| IRP_MJ_CLOSE | Walk list, find by PID, unlink (`prev->Next = current->Next`), free | **NONE** |
+| IOCTL 0x81112FFC | Walk list, copy PID + name entries, follow Next pointers | **NONE** |
+
+Node allocation: `ExAllocatePoolWithTag(NonPagedPool, 80, 'Tag4')`.
+Node layout (verified from IDA decompilation):
+```
+Offset  Size  Field
++0x00   4     ProcessId (DWORD)
++0x04   64    ImageFileName (char[64])
++0x44   4     padding (uninitialized)
++0x48   8     Next pointer (QWORD → next node or NULL)
+Total:  80 bytes (0x50)
+```
+
+**Step 1 — UAF read primitive via named pipe spray.**
+
+The spray vehicle is `NpfsDataQueueEntry` — writing data to a named pipe server creates an
+inline allocation in NonPagedPool:
+```
+NpfsDataQueueEntry layout (x64):
+  [+0x00] LIST_ENTRY       (16 bytes)
+  [+0x10] IRP*              (8 bytes)
+  [+0x18] SecurityContext*   (8 bytes)
+  [+0x20] DataEntryType     (4 bytes)
+  [+0x24] QuotaInEntry      (4 bytes)
+  [+0x28] DataSize          (4 bytes)
+  [+0x2C] QuotaCharged      (4 bytes)
+  Header total:              0x30 bytes (48)
+  [+0x30] Data payload       (N bytes, inline after header)
+```
+
+With a **32-byte pipe write**: `0x30 header + 0x20 data = 0x50 = 80 bytes` — same pool
+bucket as the driver's tracking node. The critical byte math:
+```
+Pipe data byte [0..23]  → allocation offset [0x30..0x47] → overlaps padding
+Pipe data byte [24..31] → allocation offset [0x48..0x4F] → Next pointer field
+```
+Placing a target kernel VA at pipe data bytes `[24..31]` sets the freed node's Next pointer
+to that address. The LIST IOCTL traversal follows this pointer and reads 68 bytes (4-byte PID
++ 64-byte name) from the target address.
+
+**Reliable race pattern:**
+1. **Defragment**: Open 2048 driver handles → fill LFH bucket for 80-byte chunks
+2. **Create victims**: Open 64 handles → victim nodes to be freed
+3. **Create separators**: Open 64 more handles → stay alive as "prev" nodes
+4. **Free victims**: Close the 64 victim handles → 64 holes in the pool
+5. **Spray holes**: Write 32 bytes to 256 named pipes (4× overcommit), each carrying the
+   target VA at bytes [24..31] → reclaim freed slots with controlled Next pointers
+6. **Trigger**: Call IOCTL 0x81112FFC → list traversal follows sprayed Next pointers
+7. **Detect**: Entries with invalid PIDs (>0x100000) or non-ASCII names indicate reads from
+   the target address. Each such entry contains 68 bytes read from the target.
+
+Threading: 4 open/close racer threads + 2 list-reader threads for timing the race window.
+
+**Step 2 — UAF write primitive via unlink.**
+
+The CLOSE handler's unlink provides a **constrained 8-byte write**:
+```c
+// IRP_MJ_CLOSE handler:
+while (P != NULL && P->PID != myPID) {
+    v31 = P;          // prev
+    P = P->Next;
+}
+v31->Next = P->Next;  // UNLINK: writes P->Next to prev->Next
+ExFreePoolWithTag(P, 'Tag4');
+```
+
+If `P` (current node) is freed and sprayed with controlled data:
+- `P->Next` = attacker-controlled 8-byte value (from pipe spray bytes [24..31])
+- This value gets written to `v31->Next` = `prev + 0x48`
+
+**Constraint:** The destination (`prev + 0x48`) is always a pool-allocated node address.
+For targeted kernel writes (e.g. SSDT patching), chain list corruption:
+1. UAF read → discover kernel addresses of existing list nodes
+2. Corrupt one node's Next to point near the SSDT entry (offset so `+0x48` lands on target)
+3. Subsequent CLOSE propagates the controlled value through the corrupted chain
+4. The write lands at `(corrupted_prev + 0x48)`, which is now near the target
+
+**Step 3 — SSDT hijack and kill.**
+
+With UAF R/W established, the chain follows the same Shadow SSDT hijack as 3c-3f:
+1. UAF read → `KeServiceDescriptorTableShadow` → `W32pServiceTable`
+2. Find `FF 25` gadget in win32k within ±128MB of SSDT base
+3. UAF write → patch `SSDT[NtUserSetWindowPos]` with encoded gadget offset
+4. UAF write → write `PsLookupProcessByProcessId` to IAT slot
+5. `SetWindowPos(pid)` → `PsLookupProcessByProcessId(pid, &eproc)` in kernel
+6. UAF read → retrieve EPROCESS pointer
+7. UAF write → swap IAT to `PsTerminateProcess`
+8. `SetWindowPos(eproc)` → `PsTerminateProcess(eproc, 0)` → process killed
+9. Restore SSDT + IAT immediately (BSOD prevention per 3f rules)
+10. Skip `ObfDereferenceObject` (EPROCESS freed on another core → BSOD 0x3B race)
+
+**Import signature.** `ExAllocatePoolWithTag` + `ExFreePoolWithTag` (or `ExAllocatePool2`),
+plus a list-management pattern (`InsertTailList`/`RemoveEntryList` or manual FLINK/BLINK
+manipulation). The key tell is the **absence** of proper synchronization — no
+`ExAcquireFastMutex` / `KeAcquireSpinLock` on list operations, or mutex present on some
+IOCTLs but missing on others.
+
+**idalib.** `imports_query` for `ExAllocatePoolWithTag`; `xrefs_to` the alloc call to find
+the node struct; `decompile` the CREATE/CLOSE/LIST handlers and check for mutex acquisition.
+If the same list is accessed from CREATE, CLOSE, and an IOCTL handler without consistent
+locking → UAF candidate. Cross-reference `ExAcquireFastMutex` xrefs against the list-
+manipulation functions to confirm the gap.
+
+**Fix detection.** If a newer version of the same driver adds `ExAcquireFastMutex` /
+`ExReleaseFastMutex` around list operations that previously lacked them, the UAF is patched.
+Example: AMDRyzenMasterDriver v3.2 added FastMutex to process tracking (stru_140029700),
+closing the v2.6 UAF.
+
+**Repro example.** `AMDRyzenMasterV26-Killer` — full 8-phase chain: driver load → KASLR
+bypass (NtQuerySystemInformation) → pool info leak (CWE-908) → UAF read (named pipe spray,
+CWE-416/362) → kernel function resolution (on-disk PE + sig scan) → UAF write (unlink) →
+Shadow SSDT hijack (NtUserSetWindowPos → FF 25 → PsTerminateProcess) → multi-round EDR kill
+with SCM FailureActions timing → cleanup. Platform-independent (works on AMD and Intel).
+Fixed in v3.2 (FastMutex added).
+
+### 3i. PCI config space → SMN → SMU command injection (AMD SoC)
+
+**Signature.** Driver imports `HalSetBusDataByOffset` + `HalGetBusDataByOffset` (HAL module)
+and writes to PCI config offsets 0xC4 (SMN index) and 0xC8 (SMN data) on bus 0, device 0,
+function 0. This is the AMD-specific System Management Network (SMN) access pattern — writing
+a 32-bit address to 0xC4 and reading/writing 32-bit data at 0xC8 gives full access to the
+SoC's internal register bus.
+
+**How it chains to a kill primitive:**
+1. **SMN R/W** — read/write any SoC internal register (GPU, memory controller, USB, audio,
+   SDMA engines, power management, etc.)
+2. **SMU mailbox** — the System Management Unit firmware has a command mailbox at known SMN
+   addresses. Write command ID to MSG register, arguments to ARG registers, read response
+   from RSP register. This gives arbitrary SMU firmware command injection.
+3. **DRAM address redirect** — SMU commands include `SetToolDramAddress` (sets the physical
+   address where `TransferTable` DMA writes PM table data). If this command is available on
+   the target firmware, redirect it to a kernel physical page → the SMU hardware performs
+   DMA write to the target address. This is a **hardware-level write primitive** that
+   bypasses all software memory protections.
+4. Physical write → same SSDT hijack as 3c-3f.
+
+**SMU mailbox addresses (AMD Family 25 / Zen 3-4):**
+```
+Desktop (MP1):  MSG=0x3B10570  RSP=0x3B10A40  ARG=0x3B10524
+APU (Renoir+):  MSG=0x3B10528  RSP=0x3B10564  ARG=0x3B10998
+```
+Commands: 0x01=TestMessage, 0x02=GetSmuVersion, 0x05=TransferTableSmu2Dram,
+0x06=GetDramBaseAddress, 0x0A/0x0B=SetToolDramAddress (firmware-dependent).
+
+**Import signature.** `HalSetBusDataByOffset` + `HalGetBusDataByOffset` from HAL. The driver
+may also import `MmMapIoSpace` (read-only usage for PM table), `__readmsr`/`__writemsr`
+intrinsics for MSR access. Key difference from a direct MmMapIoSpace write driver: the PCI
+config write is the entry point, not MmMapIoSpace — the physical memory write comes
+indirectly through SMU hardware DMA.
+
+**idalib.** `imports_query` for `HalSetBusDataByOffset`; `xrefs_to` the import; `decompile`
+callers to find the PCI offset table (look for constants 0xC4, 0xC8); check whether the
+IOCTL allows user-controlled bus/offset or is restricted to the SMN pair.
+
+**Repro examples.** `AMDRyzenMasterV26-Killer` (v2.6: SMN + UAF combo),
+`AMDRyzenMasterV32-Killer` (v3.2: SMN + SMU probe, UAF fixed → hardware DMA path).
+
+### 3j. Generic info leak via IoStatus.Information (KASLR bypass)
+
+**Signature.** The dispatch handler sets `Irp->IoStatus.Information = OutputBufferLength` on
+ALL successful IOCTLs, regardless of how much data was actually written to the output buffer.
+For METHOD_BUFFERED IOCTLs, the I/O manager allocates `max(InputBufferLength,
+OutputBufferLength)` from NonPagedPool, copies only `InputBufferLength` bytes of input into
+it, and after the IOCTL completes, copies `IoStatus.Information` bytes back to user mode.
+If `OutputBufferLength > InputBufferLength`, bytes beyond the input are **uninitialized pool
+residue** — kernel pointers, pool headers, freed object fragments.
+
+**How it helps.** Send any IOCTL with OutputBufferLength=4096, InputBufferLength=12 (typical
+minimum). Bytes [12..4095] are raw NonPagedPool residue. Parse for kernel pointers
+(high 16 bits == 0xFFFF, value in ntoskrnl range) → **instant KASLR bypass** without needing
+NtQuerySystemInformation or any admin-only API.
+
+**idalib.** `decompile` the dispatch handler; look for `a2->IoStatus.Information = v_outlen`
+(or equivalent) in a common exit path that ALL IOCTL branches reach. If it's in a shared
+epilogue (not per-IOCTL), every IOCTL leaks. Check that the output-buffer-length variable
+is assigned from `IO_STACK_LOCATION.Parameters.DeviceIoControl.OutputBufferLength`, not from
+actual bytes written.
+
+**Repro example.** AMDRyzenMasterDriver v3.2 — `LABEL_149` at `0x140002A71` sets
+`IoStatus.Information = OutputBufferLength` for ALL 10 IOCTLs. Confirmed via IOCTL
+0x81112FF8 (SMN write) with OutputBuf=4096, InputBuf=12 → 4084 bytes kernel pool residue.
+
+### 3k. Unrestricted MSR write (P-state / HWCR abuse)
+
+**Signature.** Driver provides an MSR write IOCTL that accepts a user-supplied MSR index
+(from a lookup table) and value. If the value validation is absent or insufficient, the
+attacker can write arbitrary values to CPU model-specific registers.
+
+**Typical restrictions to check:**
+- **Lookup table**: the IOCTL maps a user-supplied index (0-N) to an actual MSR address via
+  a driver-internal array (`dword_140009000[index]`). The index range limits which MSRs are
+  writable.
+- **Value restrictions**: some indices have full validation (HWCR/0xC0010015: only bits
+  21/24 toggleable, SmmLock bit 0 protected), others have NO validation (P-state MSRs
+  0xC0010064-0xC0010068: arbitrary Fid/Did/Vid → frequency/voltage control → DoS or
+  hardware damage).
+- **SmmLock check**: if the driver's HWCR handler prevents clearing bit 0 (SmmLock), the
+  SMM attack path is blocked. This is a deliberate security measure — note it as a
+  dead-end, not a bypass target.
+
+**Kill potential.** MSR writes alone do NOT provide a memory write primitive. They modify CPU
+state (frequency, voltage, power). Useful for: DoS (invalid P-state → CPU halt),
+Plundervolt-style fault injection (undervoltage → computation errors), or as supporting
+evidence in a vulnerability report. NOT sufficient for EDR kill without a separate memory
+write primitive.
+
 ---
 
 ## Quick tier picker
 - Terminate imports + PID-in-buffer IOCTL → **Tier 1** (byovd-lib DriverConfig).
 - Handle/attach imports, no terminate, maybe WRITE-dispatch → **Tier 2** (standalone).
 - Physical/arbitrary memory map or write, MSR read → **Tier 3** (standalone; data-only if HVCI).
+- UAF in kernel list + pool spray → **Tier 3** (kernel pool R/W → SSDT hijack).
+- PCI config → SMN → SMU injection → **Tier 3** (hardware DMA write → SSDT hijack; AMD only).
+- IoStatus.Information leak → **supports Tier 3** (KASLR bypass without NtQuerySystemInformation).

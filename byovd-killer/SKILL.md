@@ -79,6 +79,17 @@ tier) if it maps physical or arbitrary memory. Score against `references/KILL_PR
 - **Memory-primitive imports** — `MmMapIoSpace`, `MmMapMemoryDumpMdl`, `ZwMapViewOfSection`
   (on `\Device\PhysicalMemory`), `HalTranslateBusAddress`, `MmGetPhysicalAddress`,
   `__readmsr`/`__writemsr` intrinsics (Tier 3 — arbitrary R/W → data-only or code-exec kill).
+- **UAF candidate imports** — `ExAllocatePoolWithTag` + `ExFreePoolWithTag` with list ops
+  (`InsertTailList`/`RemoveEntryList`) across CREATE/CLOSE/IOCTL handlers. The tell is absent
+  or inconsistent mutex — list accessed from multiple dispatch paths without
+  `ExAcquireFastMutex`/`KeAcquireSpinLock`. UAF → pool spray → kernel R/W (Tier 3).
+- **PCI/SMN/SMU candidate (AMD SoC)** — `HalSetBusDataByOffset` + `HalGetBusDataByOffset`
+  (HAL module). If writing PCI config 0xC4/0xC8 on bus 0 dev 0, driver accesses AMD's SMN
+  register bus → SMU firmware mailbox → potential hardware DMA write. See 3i in
+  `references/KILL_PRIMITIVES.md`.
+- **Info leak** — look for `IoStatus.Information = OutputBufferLength` in shared dispatch
+  epilogue. If all IOCTLs hit this path, METHOD_BUFFERED IOCTLs return uninitialized
+  NonPagedPool residue → instant KASLR bypass (see 3j in `references/KILL_PRIMITIVES.md`).
 
 If none of these appear, the driver is likely not a killer; say so and stop (a killed target
 is a result). Note that intrinsics (`__readmsr`, `movq cr3`) won't show as imports — grep the
