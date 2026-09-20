@@ -130,20 +130,39 @@ it plainly in the write-up.
 
 These offsets were verified via kernel debugging on 24H2 and differ from some older builds:
 
+- **EPROCESS** (for PPL bypass):
+  - Protection (`_PS_PROTECTION`): **+0x5FA** (1 byte)
+    - `0x31` = PPL-Antimalware (Type=PsProtectedTypeProtectedLight, Signer=PsProtectedSignerAntimalware)
+    - Write `0x00` to strip all protection
+
 - **KLDR_DATA_TABLE_ENTRY** (for `PsLoadedModuleList` walk):
   - InLoadOrderLinks (LIST_ENTRY): +0x00
   - DllBase: +0x30
   - SizeOfImage: +0x40
   - BaseDllName (UNICODE_STRING): Length at +0x58, Buffer pointer at +0x60
 
-- **CM callback list node** (for tamper protection bypass):
+- **_OBJECT_TYPE** (for OB callback bypass):
+  - CallbackList (LIST_ENTRY): **+0xC8** (from `PsProcessType` pointer)
+  - Each `OB_CALLBACK_ENTRY` node in the list:
+    - LIST_ENTRY: +0x00
+    - PreOperation function pointer: **+0x28** (8 bytes)
+    - PostOperation function pointer: +0x30 (8 bytes)
+  - To identify WdFilter's entry: check if PreOperation falls within WdFilter's [base, base+size) range
+
+- **CM callback list node** (for tamper protection / CM callback bypass):
   - LIST_ENTRY: +0x00
-  - Callback function pointer: +0x28
-  - Note: 24H2 uses a **linked list**, not the EX_CALLBACK array (CmpCallBackVector) from older builds
+  - Callback function pointer: **+0x28**
+  - Note: 24H2 uses a **linked list** at `nt!CallbackListHead` (NOT the EX_CALLBACK array / CmpCallBackVector from older builds)
+  - **`nt!CmpCallBackCount`** (DWORD): must be decremented when unlinking a CM callback entry
 
 - **MiShowBadMapper** (24H2 driver-mapping check):
   - Astra64 bypasses this because it uses MDL-based mapping (`ZwMapViewOfSection`), not `MmMapIoSpace`
   - Drivers using `MmMapIoSpace` on 24H2 may trigger `MiShowBadMapper` and fail to map physical memory
+
+- **Win32k retpoline thunks** (24H2):
+  - On-disk: `FF 25 XX XX XX XX` (`jmp [rip+disp32]`)
+  - In-memory: `4C 8B 15 XX XX XX XX` (`mov r10, [rip+disp32]`) + `E9 XX XX XX XX` (`jmp <retpoline>`)
+  - FF 25 gadget scan must target the **on-disk PE image**, not in-memory modules
 
 ---
 

@@ -160,12 +160,17 @@ Pick the tier from `references/KILL_PRIMITIVES.md`; it decides the PoC shape:
   R/W helpers, CR3 discovery, export resolution, SSDT/stub hijack, and the two-stage shellcode
   recipe as reproduced in `Astra64-Killer` and `Ktapi-Killer`.
 - **Tier 3 Defender-specific (24H2+):** for a complete Defender kill that survives reboot, the
-  PoC must: (a) neuter WdFilter's tamper protection CM callback (section 3d in
-  `references/KILL_PRIMITIVES.md`), (b) disable all 6 services via kernel registry writes
-  (section 3e), (c) clear FailureActions, (d) run a multi-round kill loop with delays matching
-  SCM FailureActions timing (section 3e), and (e) follow SSDT safety rules — restore between
-  operations, skip ObfDereferenceObject (section 3f). On 24H2, CM callbacks use a linked list
-  (not EX_CALLBACK array), function pointer at node+0x28.
+  PoC must bypass **three independent protection layers** (section 3d in
+  `references/KILL_PRIMITIVES.md`): (a) strip PPL by writing 0x00 to EPROCESS.Protection
+  (+0x5FA on 24H2), (b) unlink WdFilter's OB callback from PsProcessType.CallbackList (+0xC8)
+  to allow PROCESS_TERMINATE handle access, (c) unlink WdFilter's CM callback from
+  nt!CallbackListHead (decrement CmpCallBackCount) to allow registry writes to Defender
+  service keys, (d) clear FailureActions and set Start=4 for all 6 services (section 3e),
+  (e) kill via usermode `taskkill` (not PsTerminateProcess — SSDT hijack for PsTerminateProcess
+  causes BSOD 0x3B DWM race and 0x0A stack exhaustion, see section 3c-1). SSDT hijack remains
+  useful for `PsLookupProcessByProcessId` (EPROCESS resolution, safe) but not for the kill step.
+  On 24H2, CM callbacks use a linked list (not EX_CALLBACK array), function pointer at node+0x28.
+  OB callback PreOperation is at node+0x28 in the OBJECT_TYPE.CallbackList at +0xC8.
 
 Match the repo's conventions: a `README.md` per killer (SHA256, LOLDrivers link, IOCTL, usage),
 the `.sys` committed next to the binary, `opt-level="z"` + `lto` + `strip` + `panic="abort"`.
@@ -178,6 +183,13 @@ Confirm with WinDbg if available: break, `!drvobj`, `!devobj`, watch the dispatc
 verify the primitive independently (read a known kernel VA, compare to `dd`) before trusting the
 kill. Note PPL/HVCI behavior honestly: did `MsMpEng.exe` actually die and stay dead, or did the
 service revive it? **Reproduced or it didn't happen.**
+
+For Defender kills: verify **persistence** — run `Get-MpComputerStatus` and check
+`AMRunningMode`, `RealTimeProtectionEnabled`, `AntivirusEnabled`. Monitor for 60+ seconds to
+confirm processes don't respawn. If using the three-layer bypass (PPL strip + OB unlink + CM
+unlink), verify all three layers were successfully bypassed: (1) `EPROCESS.Protection` reads
+as 0x00, (2) `OpenProcess(PROCESS_TERMINATE)` succeeds, (3) `reg add ... Start=4` succeeds
+on Defender service keys.
 
 ### Phase 6 — Write it up
 Per-killer README + an entry in the repo's top-level `README.md` POC list and workspace

