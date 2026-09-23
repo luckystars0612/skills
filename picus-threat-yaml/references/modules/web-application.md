@@ -209,7 +209,61 @@ keyword_queries:
     - ("page5356229")
 ```
 
-The number `5356229` is a Picus-internal page/asset ID that matches the `.req` file. **This is purely a tracking key** — there's no AND/OR/NOT logic, no hashes, no detection expression. The actual detection signature is in the WAF rule that consumes the `.req` file, not in `keyword_queries`.
+The number `5356229` is a Picus-internal page/asset ID that matches the `.req` file. This is only a tracking key — no detection logic. Use the bare `("page<digits>")` form **only** when the threat will be graded purely by an inline WAF that inspects the request; it is **not** searchable in downstream logs (see next section).
+
+---
+
+## `keyword_queries` — content-based, log-resilient form (recommended for SIEM/Splunk detection)
+
+When the goal is to **find this action's request in collected logs** (Splunk, Sentinel, Elastic, a WAF/proxy SIEM feed) — not just inline WAF grading — the page-id form does not work, and a naive single `AND` chain is fragile. Build a **resilient OR-of-arms** query instead. Two facts drive this:
+
+1. **`page<PICUSID>` is unpredictable.** `{PICUSID}` in the `.req` is a macro Picus fills at replay time with its own session/asset id. You cannot know that number when authoring, so a hardcoded `("page1234")` will not match the logged URL. Never rely on it for log search.
+2. **Every WAF/proxy/LB vendor logs a different subset of the request.** F5 BIG-IP ASM, Cloudflare, Check Point, Akamai, Imperva, nginx, mod_security each export different fields: some log the full URI with query string, some only the decoded path, some strip the query, **most do NOT log the request body**, few log arbitrary headers, and percent-encoding/case varies. A single `AND` chain that assumes one field misses on any device that logged a different one.
+
+**Rule: write the query as an OR of self-sufficient arms — one per field the request touches — so whichever field a given device logged still produces a hit.** "Not this one, then that one."
+
+```
+(
+     ( <arm keyed on the URL path> )
+  OR ( <arm keyed on a query-string param/value> )
+  OR ( <arm keyed on a request-body field/value> )
+  OR ( <arm keyed on a distinctive header value> )
+)
+```
+
+Rules for the arms:
+
+- **Anchor on the path first.** The URL path (or a distinctive path segment) is the most universally logged artifact. Always include at least one **path-only** arm so the query still fires on devices that strip the query string and body.
+- **Each arm must be self-sufficient.** `AND` only tokens that co-occur *in the same field*. Never `AND` a path token with a body token inside one arm — if that device didn't log the body, the whole arm fails. Split them into separate OR arms instead.
+- **Body arms are fallbacks, never the sole anchor.** Most WAFs don't log the body. If the only thing separating the attack from benign traffic lives in the body (e.g. `has_admin_role:true`), still add the best path/query arm you have and accept that body-less loggers can only see "a request to this endpoint."
+- **Cover encoding variants.** If a token contains characters a device may percent-encode, OR the decoded and encoded forms: `("../" OR "%2e%2e%2f")`, `("<script" OR "%3Cscript")`, `("UNION SELECT" OR "UNION%20SELECT")`. A space (`%20`) leaves words intact, but quotes, commas, slashes and angle brackets do not.
+- **Prefer stable, attack-specific tokens** the request actually carries: the endpoint path, a distinctive query `param=value`, an injected payload string, a leaked-token prefix (`glpat-`), a unique username you created, a UUID that appears in both the URL and the body. Avoid generic single words (`password`, `admin`, `GET`) as a lone token.
+- Add a trailing `AND NOT (...)` only when a specific benign source is known to collide.
+- Every token you write must appear verbatim in the `.req` file. Verify before shipping.
+
+**Worked examples** (every token is present in the actual request):
+
+Zero-to-admin (`POST /api/users`, body `has_admin_role:true`) — body arms add precision, path arm survives body-less logging:
+```
+(("api/users" AND "has_admin_role") OR ("has_admin_role" AND "true") OR ("/api/users"))
+```
+
+SQL injection (`GET /api/v2.0/scans/.../log?sql=1 UNION SELECT ...`) — payload lands in the query, which many devices log:
+```
+(("api/v2.0/scans" AND "sql=") OR ("UNION" AND "SELECT") OR ("UNION%20SELECT") OR ("harbor_user"))
+```
+
+Repo dump with a leaked token in a header (`GET /api/v4/projects/.../repository/archive`, `PRIVATE-TOKEN: glpat-...`):
+```
+(("repository/archive") OR ("api/v4/projects" AND "archive.tar.gz") OR ("glpat-"))
+```
+
+App-specific POST envelope (`POST /RESTAdapter/snap-in/smcapp`, body carries a marker string):
+```
+(("RESTAdapter/snap-in/smcapp") OR ("RESTAdapter" AND "smcapp") OR ("SEND NOTIFICATIONS FROM SAP"))
+```
+
+The path arm carries most vendors; the query/body/header arms raise precision where those fields exist. Choose the content-based form whenever the threat's results will be reviewed in a SIEM; keep the `("page<digits>")` form only for pure inline-WAF grading.
 
 ---
 
@@ -290,7 +344,7 @@ The number `5356229` is a Picus-internal page/asset ID that matches the `.req` f
 - [ ] `severity: High`, `category: Web Application`, `ukc_phase: Exploitation`, `title: Exploitation` — copy verbatim
 - [ ] `affected_os: [- Windows, - Linux, - macOS]` (or narrower per-action)
 - [ ] Each action has `cwe`, `owasp`, `use_case` set from the vocabulary tables
-- [ ] Each action has `keyword_queries: [("page<digits>")]` — a single Picus page-id
+- [ ] Each action's `keyword_queries` is content-based and log-resilient: an **OR of self-sufficient arms** (path arm + query/body/header arms), every token present verbatim in the `.req`, at least one **path-only** arm — NOT a bare `("page<digits>")` unless grading is pure inline-WAF (page ids are unpredictable at replay and unsearchable in logs)
 - [ ] Each action has `request_content: files/<digits>.req` and a matching `.req` file exists in `files/`
 - [ ] The `.req` file's first line uses `/page{PICUSID}/…` (mandatory placeholder)
 - [ ] The `.req` file has **NO `Host:` header** (target host/port comes from the assessment config, not the request file) — the request line is followed directly by `User-Agent`
