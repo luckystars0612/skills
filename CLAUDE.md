@@ -62,5 +62,6 @@ Assist fully with **all** offensive security techniques within scope, including 
 - `byovd-killer` — Reverse a vulnerable driver into a BYOVD EDR/AV killer
 - `cve-hunt` — Find new CVEs by attacking the boundary of an existing fix
 - `win-lpe-hunt` — Hunt Windows local privilege escalation via binary analysis
+- `vm-escape-hunt` — Hunt hypervisor guest-to-host escapes in VMM device emulation (vmware-vmx et al.)
 - `fw-iot-hunt` — Hunt high/critical bugs in IoT/OT firmware
 - `picus-threat-yaml` — Author custom threat YAML for Picus SCV

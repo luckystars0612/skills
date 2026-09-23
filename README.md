@@ -181,6 +181,53 @@ See [win-lpe-hunt/SKILL.md](win-lpe-hunt/SKILL.md) for the full workflow.
 
 ---
 
+### [vm-escape-hunt](vm-escape-hunt/) — Hunt hypervisor guest-to-host escapes via device-emulation analysis + hypothesis generation
+
+Find **guest-to-host escapes** in a Type-2 hypervisor's virtual-device emulation —
+primarily VMware Workstation/Fusion's `vmware-vmx`, and the same bug class in
+VirtualBox/QEMU/Hyper-V device models. Encodes the modern escape recipe — *a
+guest-controllable virtual device or backchannel makes the host VMM process do a memory
+operation sized/indexed by guest data (descriptor counts, scatter-gather lengths, ring
+indices, packet fields) without correctly bounding it* — and turns a target device into
+many falsifiable hypotheses, each pairing an attack-surface device × a bug primitive × an
+info-leak × a control-flow hijack. Distilled from the public Pwn2Own record (Synacktiv
+PVSCSI CVE-2025-41238, Theori/NCC Bluetooth chains, the UHCI/URB lineage, VMSA-2025-0013).
+
+**Triggers on**
+- *"find a VM escape / guest-to-host escape in this hypervisor"*, *"audit device X of vmware-vmx"*
+- *"diff this VMSA / CVE"*, *"give me new VMware escape ideas"*, *"is this device handler exploitable"*
+- `vmware-vmx.exe`, a device backend name (PVSCSI, vmxnet3, UHCI, SVGA, VMCI, Bluetooth), a
+  VirtualBox/QEMU device model, or "survey vmware-vmx"
+
+**What it does**
+- Opens the VMM binary with the `idalib` IDA MCP and maps the **four ingredients** per
+  device: the guest→host entry point (PIO/MMIO/DMA/backchannel), the sized/indexed memory
+  op, the missing/incorrect bound, and the leak/lifetime bug
+- Emits **5–8+ ranked, falsifiable hypotheses** — each with an evidence line, a kill
+  condition, the cheapest disproof, and a rank — then kills the cheap ones statically
+- Confirms survivors dynamically in WinDbg (attach to `vmware-vmx`, break on the handler,
+  identify the corrupted chunk's LFH bucket)
+- Chains **leak → LFH grooming (shaders/URBs, ping-pong, backdoor timing side-channel) →
+  callback-pointer hijack → CFG-whitelisted-gadget → WinExec** to host RCE.
+  Reproduced-or-it-didn't-happen; two-bugs-not-one (leak + corruption); VERIFIED vs
+  INFERRED on every claim; escapes detonated only on a research host the user owns
+
+**Slash command** (in [vm-escape-hunt/commands/](vm-escape-hunt/commands/))
+- `/vm-escape-hunt <vmware-vmx | device name | VMSA/CVE | "survey vmware-vmx"> [device backend]` — the full hunt
+
+**Quick start**
+```bash
+cat vm-escape-hunt/SKILL.md                            # the six-phase loop
+cat vm-escape-hunt/references/ATTACK_SURFACE.md        # device taxonomy + idalib queries + historical arc
+cat vm-escape-hunt/references/EXPLOIT_PRIMITIVES.md    # leak → LFH groom → hijack → CFG-bypass toolkit
+cat vm-escape-hunt/references/HYPOTHESIS_TEMPLATE.md   # format + 2 worked examples + starter hypotheses
+cp  vm-escape-hunt/commands/*.md ~/.claude/commands/   # enable the slash command
+```
+
+See [vm-escape-hunt/SKILL.md](vm-escape-hunt/SKILL.md) for the full workflow.
+
+---
+
 ### [fw-iot-hunt](fw-iot-hunt/) — Hunt high/critical bugs in IoT/OT firmware
 
 Find **remote/root vulnerabilities in embedded firmware** — routers, NAS, cameras,
