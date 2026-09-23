@@ -127,7 +127,8 @@ Whatever the action needs, drop it in `<threat-name>/files/`. Conventions:
 - **File Download / Email:** malicious binary in `files/`; on-disk filename is
   `files/<base64(MD5)>___<base64(UUID)>.<ext>` to dodge filesystem encoding issues.
 - **Web Application:** HTTP request body in `files/<digits>.req` with the mandatory
-  `/page{PICUSID}/…` placeholder.
+  `/page{PICUSID}/…` placeholder and **no `Host:` header** (the target host/port comes from
+  the Picus assessment config, not the `.req` file).
 - **Data Exfiltration:** realistic-looking PDF in `files/<base64(NUMERIC_ID)>___<base64(UUID)>.pdf`.
 - **URL Filtering:** no payload (`.yaml`-only export).
 

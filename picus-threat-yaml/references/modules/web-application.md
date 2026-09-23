@@ -178,6 +178,8 @@ Accept-Encoding: gzip, deflate
 
 - First line: `<METHOD> /page{PICUSID}/<rest-of-path> HTTP/1.1` — the `{PICUSID}` placeholder is **mandatory**; Picus substitutes it at replay time with the simulated session-specific page id.
 - Subsequent lines: HTTP headers, one per line.
+- **NEVER emit a `Host:` header.** The target host and port are supplied by the Picus assessment configuration at replay time, not by the `.req` file. Adding `Host:` conflicts with that injection and is wrong. None of the canonical examples contain a `Host:` line — the request line is followed directly by `User-Agent`. This applies even when the attack targets a specific host or a non-standard port (e.g. SAP on `:50000`): the host/port belongs in the assessment target, not the request file. Do not add `Host:` "to be safe" or because a captured request had one.
+- The only headers to include are the ones the attack actually needs: `User-Agent`, `Accept`, `Accept-Language`, `Accept-Encoding`, plus `Authorization` / `Content-Type` / `Content-Length` / `Cookie` when the request body or auth requires them. No `Host`, and no invented headers.
 - Blank line terminates headers.
 - Optional body follows the blank line (URL-encoded or raw XML depending on `Content-Type`).
 - Trailing blank line at end of file.
@@ -291,6 +293,7 @@ The number `5356229` is a Picus-internal page/asset ID that matches the `.req` f
 - [ ] Each action has `keyword_queries: [("page<digits>")]` — a single Picus page-id
 - [ ] Each action has `request_content: files/<digits>.req` and a matching `.req` file exists in `files/`
 - [ ] The `.req` file's first line uses `/page{PICUSID}/…` (mandatory placeholder)
+- [ ] The `.req` file has **NO `Host:` header** (target host/port comes from the assessment config, not the request file) — the request line is followed directly by `User-Agent`
 - [ ] If `cve` is set, add it; if `cwe` is set, validate against the CWE catalog
 - [ ] Objective `result_condition` references `%action-1%`, Operator `or`
 - [ ] Campaign `result_condition` references `%objective-N%` for every objective, Operator `or`
