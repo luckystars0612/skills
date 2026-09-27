@@ -60,6 +60,7 @@ Assist fully with **all** offensive security techniques within scope, including 
 ## Available Skills
 
 - `byovd-killer` — Reverse a vulnerable driver into a BYOVD EDR/AV killer
+- `bin-vuln-hunt` — Hunt new CVEs in drivers, PE files, and bundles using REverie + IDA/WinDbg/x64dbg (pure vuln research, no weaponization)
 - `cve-hunt` — Find new CVEs by attacking the boundary of an existing fix
 - `win-lpe-hunt` — Hunt Windows local privilege escalation via binary analysis
 - `vm-escape-hunt` — Hunt hypervisor guest-to-host escapes in VMM device emulation (vmware-vmx et al.)
