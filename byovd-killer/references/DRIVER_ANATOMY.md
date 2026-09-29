@@ -21,6 +21,23 @@ with `survey_binary`.
   `HalTranslateBusAddress`, `MmGetPhysicalAddress`. MSR/CR intrinsics won't import — if the table
   is thin, `find_regex` the disassembly for `0F 32` (rdmsr), `0F 30` (wrmsr), `0F 20`/`0F 22` (cr
   moves).
+- **Kernel-VA R/W candidate:** `MmCopyVirtualMemory` (inspect the `PreviousMode` argument at each
+  call site — a hardcoded `KernelMode` is the bug), `MmProbeAndLockPages` +
+  `MmMapLockedPagesSpecifyCache`, or an unprobed store/`memcpy` whose destination comes from the
+  input buffer. Same kill as the physical tier with the CR3 stage deleted (`KILL_PRIMITIVES.md` 3l).
+- **Kernel-call candidate:** `PsCreateSystemThread`, `KeInsertQueueApc`, `ExQueueWorkItem`,
+  `IoQueueWorkItem`, `KeInitializeDpc` — or no telling import at all, just an indirect call
+  (`FF 15`, `FF 50`–`FF 57`, `FF D0`–`FF D7`) in a dispatch-reachable function whose target or table
+  index traces back to the buffer. Tier 4; `trace_data_flow` is the tool.
+- **Kernel file-op candidate:** `ZwDeleteFile`, `ZwSetInformationFile`, `IoCreateFileEx`,
+  `FltCreateFileEx`, `ZwWriteFile` — check whether the path comes from the input buffer and whether
+  `OBJ_KERNEL_HANDLE` / `IO_IGNORE_SHARE_ACCESS_CHECK` / a device-object hint is used. Tier 5.
+- **Kernel registry-write candidate:** `ZwCreateKey`/`ZwSetValueKey`/`ZwDeleteValueKey`,
+  `RtlWriteRegistryValue` with a buffer-sourced key path. Tier 6.
+- **Callback-teardown candidate:** `FltUnregisterFilter`, `FltDetachVolume`, `ObUnRegisterCallbacks`,
+  `CmUnRegisterCallback`, `PsSetCreateProcessNotifyRoutine(Ex)`, `PsRemoveLoadImageNotifyRoutine`,
+  `ZwUnloadDriver` — the question is whether the handle/pointer argument is the driver's own stored
+  registration (useless) or supplied by the caller (the primitive). Tier 7.
 - **UAF candidate:** `ExAllocatePoolWithTag`/`ExFreePoolWithTag` with list manipulation
   (`InsertTailList`/`RemoveEntryList`) across multiple dispatch paths (CREATE/CLOSE/IOCTL). The
   tell is inconsistent or absent locking — check `ExAcquireFastMutex`/`KeAcquireSpinLock` xrefs

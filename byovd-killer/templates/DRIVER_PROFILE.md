@@ -15,7 +15,13 @@ the kill confirms it). A Tier-1 killer needs the three bolded facts exact.
 - Handle-getter: `<ZwOpenProcess / PsLookupProcessByProcessId / ObOpenObjectByPointer / none>`
 - Handle-stomp: `<KeStackAttachProcess + ObSetHandleAttributes + ZwClose? >`
 - Memory-primitive: `<MmMapIoSpace / HalTranslateBusAddress / ZwMapViewOfSection / MSR? >`
-- Verdict: **Tier <1/2/3>** — `<one-line why>`
+- Kernel-VA R/W: `<MmCopyVirtualMemory (PreviousMode?) / MmProbeAndLockPages / unprobed store? >`
+- Kernel call: `<indirect call from buffer / PsCreateSystemThread / KeInsertQueueApc / ExQueueWorkItem? >`
+- Kernel file ops: `<ZwDeleteFile / ZwSetInformationFile rename+dispose / IoCreateFileEx / ZwWriteFile? >`
+- Kernel registry write: `<ZwSetValueKey / ZwDeleteValueKey / RtlWriteRegistryValue? >`
+- Callback teardown: `<FltUnregisterFilter / FltDetachVolume / ObUnRegisterCallbacks / CmUnRegisterCallback / ZwUnloadDriver? >`
+- **All** classes found (not just the first): `<e.g. Tier 1 + Tier 5 + Tier 7>`
+- Verdict: **Tier <1..7>** — `<one-line why, and what this class adds that the repo lacks>`
 
 ## Phase 2 — Dispatch chain (the three facts)
 - DriverEntry → init fn: `<addr>`
@@ -27,10 +33,16 @@ the kill confirms it). A Tier-1 killer needs the three bolded facts exact.
 - **Buffer layout**: `<PID DWORD @ +N / u64 @ +0 / ASCII string / process NAME @ 256B>`; magic: `<none / 0x…>`
 - Sink fn: `<addr>` — kill = `<ZwOpenProcess→ZwTerminateProcess / PsLookup→PsTerminate→Obf>`
 
-## Phase 3 — Auth gap
-- SDDL on device (IoCreateDeviceSecure): `<none / restrictive>`
+## Phase 3 — Auth gap (the five gates — see LOAD_AND_AUTH_BYPASS.md)
+- Gate 1 load: `<sc create / vendor service already installed & demand-start / blocked>`
+- Gate 2 device open: SDDL (IoCreateDeviceSecure) `<none / admin / SYSTEM-only>`; symlink
+  `<present / NT path only>`; exclusive `<yes/no>`; access mask required `<…>`
+- Gate 3 caller validation: `<none / image SHA-256 / path / name / PID allowlist>` — bypass used:
+  `<n.a. / handle theft from <process> / injection / per-IOCTL check = fatal>`
+- Gate 4 argument validation: `<none / phys-addr blocklist (bypass: map from 0) / index table bound /
+  bus-device check but not address>`; mapping API `<MmMapIoSpace → MiShowBadMapper risk / MDL-based>`
+- Gate 5 telemetry left behind: `<7045 + service key + dropped .sys / none (vendor-loaded)>`
 - Buffer secret / magic required: `<none / value>`
-- Privilege / requestor-mode check: `<none / SeSinglePrivilegeCheck / LocalSystem>`
 - Why it's reachable: `<the gap>`
 
 ## Phase 4 — PoC

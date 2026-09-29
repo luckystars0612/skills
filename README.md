@@ -277,42 +277,57 @@ See [fw-iot-hunt/SKILL.md](fw-iot-hunt/SKILL.md) for the full workflow.
 ### [byovd-killer](byovd-killer/) — Turn a vulnerable driver into an AV/EDR process killer
 
 Reverse a signed Windows kernel driver into a working **BYOVD** (Bring Your Own Vulnerable
-Driver) process/EDR killer. Encodes the target model distilled from the `BlackSnufkin/BYOVD`
-collection (24 reproduced killers + its A–Z methodology): *a signed third-party driver exposes a
-kernel primitive — a process-terminate IOCTL, a handle-table stomp, or arbitrary physical/virtual
-memory R/W — to a user-mode caller with weak or absent authorization, and it's repurposed to kill
-a PPL/EDR process user mode can't touch, because the action runs in ring 0 under the driver's
-signature.*
+Driver) AV/EDR killer — or decide which driver to hunt next. Encodes the target model distilled
+from the `BlackSnufkin/BYOVD` collection (24 reproduced killers + its A–Z methodology): *a signed
+third-party driver exposes a kernel primitive — a process-terminate IOCTL, a handle-table stomp,
+arbitrary memory R/W, a controlled kernel function call, a kernel-mode file or registry operation,
+or the teardown of a kernel callback — to a user-mode caller with weak or absent authorization, and
+it's repurposed to kill or neuter a PPL/EDR product user mode can't touch, because the action runs
+in ring 0 under the driver's signature.*
 
 **Triggers on**
 - *"is this driver a process killer"*, *"reverse this .sys into a BYOVD"*, *"build an EDR killer from this driver"*
 - *"map the IOCTL dispatch / find the kill IOCTL"*, *"write a byovd-lib DriverConfig for this driver"*
+- *"which driver type should we do next"*, *"find me a fresh target"*, *"is this worth pursuing"*
 - A `.sys` path, a driver/product name, or a LOLDrivers entry; extending the BYOVD repo with a new `*-Killer`
 
 **What it does**
-- **Import-screens** the driver (the two-import terminate test, handle-stomp imports, or
-  physical-memory-map imports) as a cheap go/no-go before deep reversing
+- **Picks the target** when none was handed over: count primitives not drivers, run the saturation
+  check (another physical-memory driver adds a filename, not a result), apply the freshness gate
+  (validly signed, absent from LOLDrivers *and* the MS block list), and name a missing primitive
+  class plus concrete hunting grounds
+- **Import-screens** the driver for **all seven primitive classes** in one pass — one grep over the
+  `.sys` classes a whole directory before IDA is opened
 - Reverses the **six-step dispatch chain** (DriverEntry → device/symlink → MajorFunction table →
   IOCTL handler → the dangerous sink) with idalib, extracting the three facts a killer needs —
   **device path `\\.\X`**, **IOCTL/command code**, **input-buffer PID offset/width/encoding** —
   plus the **auth gap**, each VERIFIED against the binary
-- **Classifies the kill into a tier** that decides the PoC shape: Tier 1 direct kill IOCTL (thin
-  `byovd-lib` `DriverConfig`), Tier 2 handle/object stomp (standalone), Tier 3 arbitrary memory
-  R/W → data-only Shadow-SSDT hijack (HVCI-safe) or Win32k-stub shellcode `KernelCall`
+- **Beats the five load/auth gates** between a reachable sink and a landed IOCTL: block list vs the
+  vendor's own installed driver, device SDDL, caller image-hash validation (handle theft from the
+  vendor's trusted process), argument validation (address blocklists, mapping-API choice vs 24H2's
+  `MiShowBadMapper`, weak index bounds, incomplete CVE fixes), and load telemetry
+- **Classifies the primitive** into the class that decides the PoC shape: **Tier 1** direct kill
+  IOCTL (thin `byovd-lib` `DriverConfig`) · **Tier 2** handle/object stomp · **Tier 3** memory R/W
+  (physical, kernel-VA, or PCI→device-DMA) → data-only Shadow-SSDT hijack or Win32k-stub shellcode ·
+  **Tier 4** controlled kernel function call (HVCI-safe, no SSDT race) · **Tier 5** kernel file
+  delete/rename (reboot-persistent, no memory written) · **Tier 6** kernel registry write ·
+  **Tier 7** callback/minifilter teardown. Tiers 4–7 are usually *cheaper* than Tier 3, not harder
 - **Builds** the killer (workspace member or standalone) and **validates on a VM** — kills a benign
   target first, then the EDR/Defender process; reports PPL/HVCI behavior honestly.
   Reproduced-or-it-didn't-happen; VERIFIED vs INFERRED; VM-only detonation (it disables security software)
 
 **Slash command** (in [byovd-killer/commands/](byovd-killer/commands/))
-- `/byovd-killer <.sys | driver/product | LOLDrivers entry> [IOCTL/subsystem]` — the full reverse→build→validate
+- `/byovd-killer <.sys | driver/product | LOLDrivers entry | "what next?"> [IOCTL/subsystem]` — the full reverse→build→validate
 
 **Quick start**
 ```bash
-cat byovd-killer/SKILL.md                       # the six-phase loop
-cat byovd-killer/references/DRIVER_ANATOMY.md   # the reverse chain + idalib queries + PID-offset table
-cat byovd-killer/references/KILL_PRIMITIVES.md  # the tiered catalog (direct kill / handle stomp / physical R/W)
-cat byovd-killer/references/BYOVD_LIB.md         # DriverConfig trait, the 5 IOCTL shapes, build_ioctl_input recipes
-ls  byovd-killer/templates/                      # killer_main.rs, DRIVER_PROFILE.md
+cat byovd-killer/SKILL.md                            # the six-phase loop
+cat byovd-killer/references/TARGET_SELECTION.md      # which driver to hunt next + the one-command import grep
+cat byovd-killer/references/DRIVER_ANATOMY.md        # the reverse chain + idalib queries + PID-offset table
+cat byovd-killer/references/LOAD_AND_AUTH_BYPASS.md  # the five load/caller-validation gates and their bypasses
+cat byovd-killer/references/KILL_PRIMITIVES.md       # the catalog of all seven primitive classes
+cat byovd-killer/references/BYOVD_LIB.md             # DriverConfig trait, the 5 IOCTL shapes, build_ioctl_input recipes
+ls  byovd-killer/templates/                          # killer_main.rs, DRIVER_PROFILE.md
 cp  byovd-killer/commands/*.md ~/.claude/commands/   # enable the slash command
 ```
 

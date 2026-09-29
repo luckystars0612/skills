@@ -1,9 +1,18 @@
 # Kill primitives — the tiered catalog
 
-A BYOVD killer = **a driver primitive** repurposed to terminate a process user mode can't touch.
-Three tiers, in ascending power and effort. Each entry lists the **import/artifact signature** to
-recognize it, **how it kills**, the **PPL/HVCI** posture, and the **reproduced example** in the
-`BlackSnufkin/BYOVD` repo. Pick the tier in Phase 3; it decides the PoC shape (Phase 4).
+A BYOVD killer = **a driver primitive** repurposed to neutralize security software user mode can't
+touch. **Seven classes.** Each entry lists the **import/artifact signature** to recognize it, **how
+it kills**, the **PPL/HVCI** posture, and the **reproduced example** (or an honest "none yet"). Pick
+the class in Phase 3; it decides the PoC shape (Phase 4).
+
+- **Tier 1** — direct kill IOCTL · **Tier 2** — handle/object stomp · **Tier 3** — arbitrary memory
+  R/W (physical 3a–3k, kernel-VA 3l, PCI/DMA 3m) · **Tier 4** — controlled kernel function call ·
+  **Tier 5** — kernel file delete/rename/write · **Tier 6** — kernel registry write · **Tier 7** —
+  callback/minifilter teardown.
+- Tiers 1–3 ascend in effort; **Tiers 4–7 are often *cheaper* than Tier 3**, not harder — they are
+  simply newer to the collection. If you are choosing a *target* rather than classifying one you
+  were handed, read `TARGET_SELECTION.md` first: picking another Tier-3 physmem driver adds a
+  filename, not a result.
 
 Short names map to `mcp__plugin_ida-pro-mcp_idalib__<name>`.
 
@@ -86,8 +95,14 @@ the terminate is `PsTerminateProcess` invoked from a hijacked kernel context —
   unmap `0x82007100`).
 - **MSR read IOCTL** (`__readmsr`) → read `IA32_LSTAR` (`0xC0000082`) = the syscall entry =
   `KiSystemCall64`, a fixed offset into ntoskrnl → **KASLR bypass** without a leak.
+- **Not physical at all** → two variants with their own sections, both of which change the amount
+  of work by a lot: a **kernel-virtual** primitive (`MmCopyVirtualMemory` with `KernelMode`, an
+  unprobed store, `MmProbeAndLockPages` on a caller VA) lets you skip steps 2–4 of 3b entirely —
+  see **3l**; and a driver with **only port I/O or PCI config access** and no mapper at all
+  escalates through device DMA — see **3m**.
 
 ### 3b. Build the R/W ladder (user mode)
+*Kernel-VA primitives skip steps 2–4 — go straight to 3l.*
 1. **Physical R/W wrapper** over the map IOCTL: `map_phys(pa,size)` → VA, copy, `unmap`. Cache
    the last mapping; probe the returned handle's high 32 bits with `VirtualQuery`+`MEM_COMMIT`
    when the driver only returns the low dword.
@@ -630,10 +645,243 @@ write primitive.
 
 ---
 
+### 3l. Kernel-**virtual** memory R/W (skip the CR3 stage entirely)
+
+**Signature.** The primitive operates on virtual addresses, not physical ones:
+- **`MmCopyVirtualMemory` with `PreviousMode = KernelMode`** — the driver passes `KernelMode`
+  (hardcoded, or from the IRP without checking `Irp->RequestorMode`), which skips address
+  validation → arbitrary kernel VA read *and* write.
+- **Unvalidated pointer copy** — the handler does `memcpy(dst, src, len)` where `dst` or `src`
+  comes out of the input buffer with no `ProbeForRead`/`ProbeForWrite`. The narrow version
+  (a single DWORD/QWORD store to a buffer-supplied address) is a **write-what-where** and is
+  still fully sufficient: every write in 3d is 1–8 bytes.
+- **`MmProbeAndLockPages` on a caller-supplied VA + `MmMapLockedPagesSpecifyCache(UserMode)`** —
+  maps an arbitrary kernel VA straight into the caller's address space.
+
+**Why it matters.** It deletes steps 2–4 of the 3b ladder: no CR3 brute-force, no PML4→PT walk,
+no physical-address plumbing. Get the ntoskrnl base from
+`NtQuerySystemInformation(SystemModuleInformation)` (admin, and you are already admin to load the
+driver) or from a 3j leak, resolve exports by reading the mapped image, then apply 3d directly.
+Not detectable by screening for `MmMapIoSpace`/`ZwMapViewOfSection`, so these drivers are
+systematically under-reported.
+
+**Caveats.** Paged memory: a fault is fine at PASSIVE_LEVEL but bugchecks if the driver does the
+copy at DISPATCH_LEVEL or under a spinlock — check the IRQL of the handler before reading wide
+ranges, and prefer non-paged targets (ntoskrnl `.text`/`.data`, EPROCESS, callback lists are all
+non-paged). A read of a bad VA in a driver without SEH is an instant 0x50.
+
+**PPL/HVCI.** PPL: yes (via 3d). HVCI: safe (data-only).
+
+**PoC shape.** Standalone, but a fraction of 3g — R/W wrapper → module base → exports → 3d → 3e.
+
+**idalib.** `xrefs_to MmCopyVirtualMemory` and check the `PreviousMode` argument at each call
+site; `trace_data_flow` from `SystemBuffer`/`Type3InputBuffer` to any `memcpy`/`memmove`/store
+destination; `find_regex` for `48 89` stores whose destination register traces back to the buffer.
+
+### 3m. PCI config space → device DMA → physical R/W (vendor-agnostic)
+
+**Signature.** No memory-mapping IOCTL at all — only **port I/O** (`in`/`out` to `0xCF8`/`0xCFC`)
+or explicit **PCI config read/write** IOCTLs (`HalGetBusDataByOffset`/`HalSetBusDataByOffset`).
+Already present and unweaponized in `IOMap64.sys` (bug 5), `CorsairLLAccess64.sys` and
+`MyPortIO_x64.sys`.
+
+**Why hunt it.** It is the only Tier-3 path with no physical-memory mapping call in the driver, so
+`MiShowBadMapper`, the driver's own physical-address blocklist, and import screening for
+`MmMapIoSpace` are all **structurally irrelevant** rather than incidentally bypassed. It is also
+the strongest novelty in the port-I/O family, which is otherwise saturated.
+
+**The ladder.**
+1. **ECAM base** — read the ACPI `MCFG` table from user mode with `GetSystemFirmwareTable`
+   (provider `'ACPI'`), no kernel access needed; fall back to reading ACPI from the physical
+   primitive if you have one.
+2. **PCI config R/W** — either the CF8/CFC pair (`bus<<16 | dev<<11 | fn<<8 | off`, then read
+   CFC) or ECAM MMIO at `base + (bus<<20 | dev<<15 | fn<<12 | off)`.
+3. **Escalate to a host-memory write**, three sub-paths:
+   - **(a) Bus-master DMA engine.** Best documented on **AHCI**: read BAR5 (ABAR), build a
+     command list + command table in a physical page you control, point the PRDT entries at the
+     target physical address, set bus-master enable in the command register, and issue a disk
+     read → the controller DMAs attacker-controlled bytes into arbitrary host physical memory.
+     NVMe equivalent: a submission queue whose PRP entries point at the target.
+   - **(b) iGPU GTT/GART remap.** Program graphics translation-table entries to point at target
+     physical pages, then read/write them through the GPU aperture — full physical R/W on Intel
+     platforms without touching a mapper.
+   - **(c) Firmware mailbox.** AMD SMN → SMU (see 3i); the Intel analogue is the PMC/PUNIT
+     mailbox. An in-band register bus reaches firmware that performs the DMA for you.
+4. Physical write → 3d/3e as usual.
+
+**Caveats — state enforcement honestly.** With **Kernel DMA Protection / VT-d DMA remapping**
+enabled, device DMA is translated and arbitrary host-physical targets can be refused; internal
+devices are usually exempt from the pre-boot policy but not necessarily from remapping. Record
+`msinfo32` → "Kernel DMA Protection" and `Get-CimInstance Win32_DeviceGuard` in the write-up.
+Reprogramming a live storage controller can hang or corrupt the disk — snapshot the VM, and
+prefer a device the VM does not boot from.
+
+**PPL/HVCI.** PPL: yes (via 3d). HVCI: safe. IOMMU: the real gate — see above.
+
+---
+
+## Tier 4 — Controlled kernel function call ("call-what-with-args")
+
+The driver calls a function whose address, or whose index into a function table, is influenced by
+the input buffer. This is *more* power for *less* work than Tier 3, and it is the direct fix for
+the SSDT hijack's failure modes.
+
+**Signature / artifacts.**
+- An **indirect call in the dispatch path** whose target traces back to the input buffer —
+  `call qword ptr [rXX + 8*idx]` where `idx` (or the table base) is user-supplied, or a plain
+  `call rXX`.
+- A **device-extension slot** written by one IOCTL and invoked by another ("register handler",
+  "set notify routine", "plugin"/"module" dispatchers).
+- A **routine argument** handed to `PsCreateSystemThread`, `KeInsertQueueApc`, `ExQueueWorkItem`,
+  `IoQueueWorkItem`, `ExInitializeWorkItem`, `KeInitializeDpc` + `KeSetTimer`, or an IRP
+  completion routine — sourced from user data.
+
+**How it kills.** Point the call at an **existing ntoskrnl export** — nothing is written to
+executable memory, so HVCI/KDP have nothing to object to. Chain: obtain a kernel scratch address
+(call `ExAllocatePoolWithTag` first if the primitive returns RAX to you; otherwise use a known
+writable non-paged global, or the driver's own device extension) → `PsLookupProcessByProcessId(pid,
+&scratch)` → `PsTerminateProcess(eprocess, 0)`, or `ObOpenObjectByPointer` + `ZwTerminateProcess`.
+Skip `ObfDereferenceObject` (the 0x3B race in 3f). How many of RCX/RDX/R8/R9 you control is set by
+the call site's ABI — two is enough for the whole chain above.
+
+**Why prefer it over 3c.** No global kernel structure is mutated, so there is **no window in which
+another thread can enter your redirected path** — the 0x3B DWM race on `NtUserSetWindowPos`
+(3c-1) cannot occur, and there is no restore step to get wrong. Two things to verify per driver:
+**IRQL** — a DPC/timer-sourced call runs at DISPATCH_LEVEL, where `PsTerminateProcess` and
+anything that waits will bugcheck, so prefer a work-item or system-thread path at PASSIVE_LEVEL;
+and **stack headroom** — the 0x0A in 3c-1 came from `PsTerminateProcess` needing >27KB, and a
+work-item or fresh system thread starts with a clean kernel stack while a deep IOCTL dispatch path
+does not. Measure, don't assume.
+
+**PPL/HVCI.** PPL: yes. HVCI: safe (existing signed code only). Needs the ntoskrnl base —
+`NtQuerySystemInformation(SystemModuleInformation)` or 3j.
+
+**PoC shape.** Standalone, but far smaller than 3g: resolve base + exports, set up args, fire.
+
+**idalib.** `find_regex` for indirect-call encodings (`FF 15`, `FF 50`–`FF 57`, `FF D0`–`FF D7`)
+inside functions reachable from `MajorFunction[14]`; `xrefs_to PsCreateSystemThread`,
+`KeInsertQueueApc`, `ExQueueWorkItem`, `KeInitializeDpc`; `trace_data_flow` from the input buffer
+to the call target and to each argument register.
+
+**Repro example.** None in the repo yet — an open gap worth filling.
+
+---
+
+## Tier 5 — Arbitrary kernel-mode file operations (delete / rename / write)
+
+The only class that is **reboot-persistent by construction** and touches no kernel memory at all.
+
+**Signature.** A path out of the input buffer (`UNICODE_STRING`, or a wide string like
+`\??\C:\...`) reaching `ZwCreateFile`/`IoCreateFileEx`/`FltCreateFileEx`, then
+`ZwSetInformationFile` with `FileDispositionInformation` (delete) or `FileRenameInformation`, or
+`ZwDeleteFile`, or `ZwWriteFile`. The tells are `OBJ_KERNEL_HANDLE` in the `OBJECT_ATTRIBUTES`,
+no path canonicalization or allowlist, and no `Irp->RequestorMode` check. If the driver already
+passes `IO_IGNORE_SHARE_ACCESS_CHECK` or a device-object hint, it is handing you the strong
+version of the primitive.
+
+**Where it lives.** Uninstallers, updaters, AV cleanup/removal helpers, backup/imaging drivers,
+"secure delete" tools, game-launcher repair components, anti-rootkit toolkits.
+
+**How it kills.** Defender's kernel components are files: rename or delete `WdFilter.sys`,
+`WdBoot.sys` (ELAM), `WdNisDrv.sys`, and the platform content under
+`C:\ProgramData\Microsoft\Windows Defender\Platform\<version>\`. On the next boot the minifilter is
+simply absent — no OB/CM callbacks ever register and the services fail to start. Variant: an
+arbitrary kernel **write** over a DLL a SYSTEM service loads → SYSTEM code execution, then any
+other kill path.
+
+**Why kernel mode matters, and where it can still be stopped.** The files are ACL'd to
+TrustedInstaller/SYSTEM and held open by a PPL process, but a kernel-mode open with
+`OBJ_KERNEL_HANDLE` (KernelMode access mode) skips the DACL check, and
+`IO_IGNORE_SHARE_ACCESS_CHECK` skips the sharing check. What it does **not** skip: WdFilter is a
+*minifilter*, and FltMgr invokes it for kernel-mode I/O too — Defender self-protection can still
+deny the operation. The bypass, when the driver's call shape allows it, is `IoCreateFileEx` with a
+**device-object hint** to the base filesystem device, which skips filters attached above that hint.
+Treat "the delete succeeded with tamper protection ON" as the VERIFIED bar; anything less is
+INFERRED.
+
+**PPL/HVCI/PatchGuard.** PPL: not applicable (no process is touched). HVCI and PatchGuard:
+irrelevant — no kernel memory is written.
+
+**Validation.** `fltmc filters` before/after, reboot, then `Get-MpComputerStatus`
+(`AMRunningMode`, `AntivirusEnabled`, `RealTimeProtectionEnabled`). **Snapshot first** — this class
+is destructive and deleting the wrong driver leaves the VM unbootable.
+
+**Repro example.** None in the repo yet — the largest coverage gap in the collection.
+
+---
+
+## Tier 6 — Arbitrary kernel-mode registry write
+
+**Signature.** `ZwCreateKey`/`ZwOpenKey` + `ZwSetValueKey`/`ZwDeleteKey`/`ZwDeleteValueKey` (or
+`RtlWriteRegistryValue`) with a key path from the input buffer, `OBJ_KERNEL_HANDLE`, no allowlist.
+
+**How it kills.** The service-disable half of 3e with no memory primitive: `Start=4` on
+`WinDefend`, `WdNisSvc`, `WdFilter`, `SecurityHealthService`, `Sense`, `MDCoreSvc`; clear
+`FailureActions` (`cActions=0`) to stop SCM restart loops; optionally strip WdFilter's ELAM/Group
+entries. Effective after reboot — SCM caches service config in memory (3e).
+
+**Honest caveat (INFERRED until tested on your build).** CM callbacks are invoked regardless of
+requestor mode, so WdFilter's tamper-protection callback still sees the write, and it decides on
+the *current process* — which is yours. With tamper protection on, expect `STATUS_ACCESS_DENIED`
+back from `ZwSetValueKey`. Consequences: Tier 6 alone is enough for third-party EDRs that register
+no CM callback, and for Defender with TP off; against TP-on Defender it must be paired with a CM
+unlink (3d Layer 3) or a Tier 7 teardown. The driver's returned status tells you which world you
+are in — fire one write and read the status before building anything on top.
+
+**PPL/HVCI.** PPL: not applicable. HVCI: irrelevant.
+
+**Validation.** Read the value back through the driver, reboot, `sc query <svc>`,
+`Get-MpComputerStatus`.
+
+---
+
+## Tier 7 — Callback / minifilter teardown
+
+**Signature.** `FltUnregisterFilter`, `FltDetachVolume`, `ObUnRegisterCallbacks`,
+`CmUnRegisterCallback`, `PsSetCreateProcessNotifyRoutine(Ex)` / `PsRemoveLoadImageNotifyRoutine`
+with remove semantics, or `ZwUnloadDriver` — reachable with a registration handle, pointer or index
+supplied by the caller. **Anti-rootkit and system-analysis toolkit drivers expose this
+deliberately**: enumerating and removing kernel callbacks is their advertised feature.
+
+**How it kills.** Unregister WdFilter's OB callback → handle access to `MsMpEng.exe` is no longer
+stripped; unregister its CM callback → registry writes to Defender keys succeed; detach the
+minifilter instance → file protection is gone. That is 3d Layers 2 and 3 achieved **with no memory
+write at all**, and it survives nothing (callbacks re-register on reboot) unless paired with Tier
+5/6 persistence.
+
+**Hard limit — state it plainly.** Teardown does **not** strip PPL. Layer 1
+(`EPROCESS.Protection`) is untouched, so a user-mode `OpenProcess(PROCESS_TERMINATE)` on a PPL
+process still returns ACCESS_DENIED. Tier 7 must be paired with a kernel-side kill (Tier 1 or 4),
+a PPL strip (needs a memory write), or a file/registry kill (Tier 5/6). A driver that has **Tier 7
++ Tier 5** — common in anti-rootkit toolkits — is a complete chain with zero memory R/W.
+`ZwUnloadDriver` on WdFilter is the blunt version and normally fails while instances are attached;
+detach first.
+
+**PPL/HVCI.** PPL: no (see above). HVCI: irrelevant.
+
+**idalib.** `xrefs_to` each teardown import; the question to answer is whether the handle argument
+is the driver's own stored registration (useless) or comes from the caller (the primitive).
+
+**Repro example.** None in the repo yet.
+
+---
+
 ## Quick tier picker
 - Terminate imports + PID-in-buffer IOCTL → **Tier 1** (byovd-lib DriverConfig).
 - Handle/attach imports, no terminate, maybe WRITE-dispatch → **Tier 2** (standalone).
-- Physical/arbitrary memory map or write, MSR read → **Tier 3** (standalone; data-only if HVCI).
+- Physical memory map or write, MSR read → **Tier 3** (standalone; data-only if HVCI).
+- Kernel-**VA** R/W or write-what-where → **Tier 3 via 3l** (skip CR3 brute-force entirely).
 - UAF in kernel list + pool spray → **Tier 3** (kernel pool R/W → SSDT hijack).
-- PCI config → SMN → SMU injection → **Tier 3** (hardware DMA write → SSDT hijack; AMD only).
-- IoStatus.Information leak → **supports Tier 3** (KASLR bypass without NtQuerySystemInformation).
+- PCI config → SMN → SMU injection → **Tier 3 via 3i** (hardware DMA write; AMD only).
+- Port I/O or PCI config only, no mapper → **Tier 3 via 3m** (AHCI/NVMe/GTT DMA; IOMMU is the gate).
+- Buffer-controlled call target, table index, or routine argument → **Tier 4** (no SSDT hijack, no race).
+- Buffer-controlled file path into delete/rename/write → **Tier 5** (reboot-persistent, no memory R/W).
+- Buffer-controlled registry path into a value write → **Tier 6** (pair with CM unlink if TP is on).
+- Caller-supplied handle into `Flt*`/`Ob*`/`Cm*` unregister → **Tier 7** (pair with a kill; no PPL strip).
+- IoStatus.Information leak → **supports Tiers 3 and 4** (KASLR bypass without NtQuerySystemInformation).
+- MSR write only, no memory write → **not a killer on its own** (3k) — report it, don't chase it.
+
+**Tier ordering note.** Tiers 1–3 are ordered by ascending effort. Tiers 4–7 are *not* harder than
+3 — several are considerably cheaper — they are ordered by how recently the collection started
+covering them. Pick by what the driver gives you, and by which class the repo still lacks
+(`TARGET_SELECTION.md`).

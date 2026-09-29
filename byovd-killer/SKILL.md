@@ -1,7 +1,7 @@
 ---
 name: byovd-killer
-description: Reverse a Windows kernel driver into a working BYOVD (Bring Your Own Vulnerable Driver) AV/EDR process killer. Screen a .sys for a process-kill or arbitrary-physical-memory primitive, reverse the IOCTL dispatch chain (DriverEntry → device/symlink → MajorFunction table → IOCTL handler → the dangerous sink), extract the device path + IOCTL code + input-buffer layout, classify the kill primitive into a tier, then emit a thin Rust killer on the byovd-lib DriverConfig trait (or a standalone PoC for physical-R/W and handle-stomp tiers). Use when the user hands you a driver, a driver name, or a LOLDrivers entry and wants a process/EDR killer, an IOCTL map, a byovd-lib DriverConfig, or an assessment of whether a driver is weaponizable. Also for extending the BlackSnufkin/BYOVD repo with a new *-Killer. 中文触发词：BYOVD、脆弱驱动、进程终结、EDR杀软对抗、驱动逆向、IOCTL、物理内存读写、SSDT。
-tags: [byovd, windows, kernel-driver, edr, av, process-kill, ioctl, ida, idalib, reverse-engineering, ssdt, physical-memory, rust, loldrivers]
+description: Reverse a Windows kernel driver into a working BYOVD (Bring Your Own Vulnerable Driver) AV/EDR killer, or decide which driver to hunt next. Screen a .sys for any of seven primitive classes (direct process-kill, handle stomp, arbitrary memory R/W, controlled kernel function call, kernel file delete/rename, kernel registry write, callback/minifilter teardown), reverse the IOCTL dispatch chain (DriverEntry → device/symlink → MajorFunction table → IOCTL handler → the dangerous sink), extract the device path + IOCTL code + input-buffer layout, get past the load and caller-validation gates, classify the primitive, then emit a thin Rust killer on the byovd-lib DriverConfig trait (or a standalone PoC for the memory, call, file and teardown classes). Use when the user hands you a driver, a driver name, or a LOLDrivers entry and wants a process/EDR killer, an IOCTL map, a byovd-lib DriverConfig, an assessment of whether a driver is weaponizable, or a recommendation of which driver type/target to go after next. Also for extending a BYOVD repo with a new *-Killer. 中文触发词：BYOVD、脆弱驱动、进程终结、EDR杀软对抗、驱动逆向、IOCTL、物理内存读写、SSDT、内核文件删除、回调摘除、驱动选型。
+tags: [byovd, windows, kernel-driver, edr, av, process-kill, ioctl, ida, idalib, reverse-engineering, ssdt, physical-memory, kernel-file-delete, callback-teardown, target-selection, rust, loldrivers]
 ---
 
 # byovd-killer — turn a vulnerable driver into a process killer
@@ -12,11 +12,13 @@ target model, distilled from the `BlackSnufkin/BYOVD` collection (24 reproduced 
 its documented A–Z methodology:
 
 > **A signed third-party driver exposes a kernel primitive to an unprivileged-or-admin
-> user-mode caller — a direct process-terminate IOCTL, a handle-table manipulation, or
-> arbitrary physical/virtual memory read-write — with weak or absent authorization. That
-> primitive is repurposed to terminate a protected process (PPL Defender, an EDR agent)
-> that user mode cannot touch, because the action executes in ring 0 under the driver's
-> signature and below the OS callback layer.**
+> user-mode caller — a direct process-terminate IOCTL, a handle-table manipulation,
+> arbitrary physical or virtual memory read-write, a controlled kernel function call, an
+> arbitrary kernel-mode file or registry operation, or the teardown of a kernel callback —
+> with weak or absent authorization. That primitive is repurposed to terminate or neuter a
+> protected security product (PPL Defender, an EDR agent) that user mode cannot touch,
+> because the action executes in ring 0 under the driver's signature and below the OS
+> callback layer.**
 
 Your job is NOT just to fire one IOCTL. It is to (1) **decide the driver is weaponizable**
 from its imports and dispatch, (2) **extract the three facts a killer needs** — device path,
@@ -64,6 +66,16 @@ Win32k syscall stubs move between builds). Get the `.sys` on disk. Record its SH
 LOLDrivers / the Microsoft driver block list — a blocked driver still works as a PoC but won't
 load on a machine that enforces the block list, which is worth stating up front.
 
+**Phase 0b — target selection (only when no specific driver was handed to you).** If the ask is
+"which driver should we do next", "find me a target", or "is this worth pursuing", work
+`references/TARGET_SELECTION.md` instead of jumping into IDA. The rule that matters: **choose by
+the primitive class the collection is missing, not by which `.sys` is available.** Run the
+saturation check out loud (another arbitrary-physical-memory driver adds a filename, not a result),
+apply the freshness gate (validly signed, absent from LOLDrivers *and* the MS block list), and
+recommend a class plus two or three concrete hunting grounds. Say plainly when the best next move
+needs **no new driver** — an unfinished primitive on a driver already in the repo usually beats a
+fresh target.
+
 ### Phase 1 — Import screening (the cheap go/no-go gate)
 Before any deep reversing, screen imports. `idb_open` then `imports` / `imports_query`. A
 driver is a **process-killer candidate** if it imports a *terminate* primitive **and** a way
@@ -79,6 +91,28 @@ tier) if it maps physical or arbitrary memory. Score against `references/KILL_PR
 - **Memory-primitive imports** — `MmMapIoSpace`, `MmMapMemoryDumpMdl`, `ZwMapViewOfSection`
   (on `\Device\PhysicalMemory`), `HalTranslateBusAddress`, `MmGetPhysicalAddress`,
   `__readmsr`/`__writemsr` intrinsics (Tier 3 — arbitrary R/W → data-only or code-exec kill).
+- **Kernel-VA R/W imports** — `MmCopyVirtualMemory` (check the `PreviousMode` argument at each
+  call site), `MmProbeAndLockPages` + `MmMapLockedPagesSpecifyCache`, or an unprobed
+  `memcpy`/store whose destination comes from the input buffer (Tier 3 via **3l** — same kill as
+  Tier 3 with the CR3 brute-force and page-table walk deleted; invisible to `MmMapIoSpace`
+  screening, so these drivers are systematically under-reported).
+- **Kernel-call imports / artifacts** — `PsCreateSystemThread`, `KeInsertQueueApc`,
+  `ExQueueWorkItem`, `IoQueueWorkItem`, `KeInitializeDpc`+`KeSetTimer`, or any indirect call in the
+  dispatch path whose target or table index traces to the input buffer (**Tier 4** — call an
+  existing ntoskrnl export with your arguments; HVCI-safe, and it removes the SSDT hijack's race
+  and restore window entirely).
+- **Kernel file-op imports** — `ZwDeleteFile`, `ZwSetInformationFile`
+  (`FileDispositionInformation`/`FileRenameInformation`), `IoCreateFileEx`, `FltCreateFileEx`,
+  `ZwWriteFile` with a path from the buffer (**Tier 5** — delete/rename WdFilter and the ELAM
+  driver; reboot-persistent, no kernel memory written, HVCI and PatchGuard irrelevant).
+- **Kernel registry-write imports** — `ZwCreateKey`/`ZwSetValueKey`/`ZwDeleteValueKey`,
+  `RtlWriteRegistryValue` with a key path from the buffer (**Tier 6** — service disable without a
+  memory primitive; note the CM-callback caveat in the tier).
+- **Callback-teardown imports** — `FltUnregisterFilter`, `FltDetachVolume`,
+  `ObUnRegisterCallbacks`, `CmUnRegisterCallback`, `PsSetCreateProcessNotifyRoutine(Ex)` /
+  `PsRemoveLoadImageNotifyRoutine`, `ZwUnloadDriver` reachable with a caller-supplied handle
+  (**Tier 7** — blinds WdFilter with no memory write, but does **not** strip PPL, so it needs a
+  kill partner).
 - **UAF candidate imports** — `ExAllocatePoolWithTag` + `ExFreePoolWithTag` with list ops
   (`InsertTailList`/`RemoveEntryList`) across CREATE/CLOSE/IOCTL handlers. The tell is absent
   or inconsistent mutex — list accessed from multiple dispatch paths without
@@ -90,6 +124,12 @@ tier) if it maps physical or arbitrary memory. Score against `references/KILL_PR
 - **Info leak** — look for `IoStatus.Information = OutputBufferLength` in shared dispatch
   epilogue. If all IOCTLs hit this path, METHOD_BUFFERED IOCTLs return uninitialized
   NonPagedPool residue → instant KASLR bypass (see 3j in `references/KILL_PRIMITIVES.md`).
+
+**Screen for every class in one pass.** Drivers carry several: an AV-removal driver with a kill
+IOCTL usually also has force-delete (Tier 5) and callback removal (Tier 7); a file-op driver
+usually also writes the registry (Tier 6). Record every class in the profile, not just the first
+one that would make a killer — the extra classes are what make the write-up novel, and the cheapest
+class is often not the most powerful one.
 
 If none of these appear, the driver is likely not a killer; say so and stop (a killed target
 is a result). Note that intrinsics (`__readmsr`, `movq cr3`) won't show as imports — grep the
@@ -116,8 +156,15 @@ query. The goal is the three facts a killer needs, each **VERIFIED** against the
    from in the input buffer (`*(a1 + 4)` → PID at +4), whether the input is binary DWORD, a
    u64, an ASCII string, or a process **name**, and any magic value it checks.
 6. **Auth check** — is there a caller check (`SeSinglePrivilegeCheck`, a shared-secret in the
-   buffer, an SDDL on the device via `IoCreateDeviceSecure`, a requestor-mode check)? Absence
-   is what makes it exploitable; presence tells you what the killer must satisfy.
+   buffer, an SDDL on the device via `IoCreateDeviceSecure`, a requestor-mode check, or a
+   SHA-256/path/name check on the *calling image*)? Absence is what makes it exploitable;
+   presence tells you what the killer must satisfy — and a present check is usually bypassable
+   rather than fatal. Work the five gates in `references/LOAD_AND_AUTH_BYPASS.md`: image load,
+   device open, **caller validation** (handle theft from the vendor's own trusted process — the
+   `AsIO3`/`AsusCertService.exe` pattern), **argument validation** (physical-address blocklists
+   beaten by mapping from address 0; `MmMapIoSpace` vs MDL mapping deciding whether 24H2's
+   `MiShowBadMapper` stops you; index tables with weak bounds), and load telemetry. An incomplete
+   argument check is itself a finding — that is why `IOMap64` v3.2 bypasses its own CVE fix.
 
 Record everything in `templates/DRIVER_PROFILE.md`. If the sink is not a terminate but a
 memory map/write, you're in Tier 3 — the "IOCTL" gives you a physical/virtual R/W primitive and
@@ -144,6 +191,24 @@ Pick the tier from `references/KILL_PRIMITIVES.md`; it decides the PoC shape:
   stage-2 shellcode in kernel pool that calls `PsTerminateProcess`). KASLR bypass via reading
   `IA32_LSTAR` MSR. This tier defeats PPL **and** EDR kernel callbacks because the terminate is
   `PsTerminateProcess` invoked from ring 0, not `NtTerminateProcess` from user mode.
+  Two sub-variants change the effort dramatically, so recognize them early: a **kernel-VA**
+  primitive (3l) skips the CR3 brute-force and the page-table walk, and a **PCI/port-I/O only**
+  driver escalates through device DMA (3m) with no mapping IOCTL at all.
+- **Tier 4 — Controlled kernel function call.** The call target, or its index into a function
+  table, comes from the input buffer. Call an existing ntoskrnl export with your own arguments —
+  `PsLookupProcessByProcessId` → `PsTerminateProcess` — with no shellcode and no SSDT mutation, so
+  HVCI is satisfied and the 0x3B DWM race cannot occur. Verify IRQL and stack headroom per driver.
+- **Tier 5 — Kernel file delete / rename / write.** Neuter Defender by removing its files
+  (`WdFilter.sys`, the `WdBoot.sys` ELAM driver, the Platform directory) from kernel mode. The only
+  class that is reboot-persistent by construction; no kernel memory is written, so HVCI, PatchGuard
+  and KDP are all irrelevant. FltMgr still shows the operation to WdFilter, so the
+  device-object-hint variant is what makes it land with tamper protection on.
+- **Tier 6 — Kernel registry write.** The service-disable half of the chain with no memory
+  primitive. Enough on its own against EDRs that register no CM callback; against tamper-protected
+  Defender it needs a CM unlink or a Tier 7 teardown first.
+- **Tier 7 — Callback / minifilter teardown.** Unregister the OB/CM callbacks or detach the
+  minifilter — 3d Layers 2 and 3 with zero memory writes — but it does **not** strip PPL, so it is
+  only ever half a chain. Pair it with Tier 1/4 (kernel kill) or Tier 5/6 (file/registry).
 
 ### Phase 4 — Build the killer
 - **Tier 1:** add a workspace member modeled on `templates/killer_main.rs`. Implement
@@ -159,6 +224,14 @@ Pick the tier from `references/KILL_PRIMITIVES.md`; it decides the PoC shape:
   page-table walk), then the kill layer. `references/KILL_PRIMITIVES.md` carries the physical-
   R/W helpers, CR3 discovery, export resolution, SSDT/stub hijack, and the two-stage shellcode
   recipe as reproduced in `Astra64-Killer` and `Ktapi-Killer`.
+- **Tier 4 / 5 / 6 / 7:** standalone crate, but much smaller than a Tier-3 killer — there is no
+  physical R/W wrapper, no CR3 discovery and no page-table walk. Tier 4 needs only the ntoskrnl base
+  (`NtQuerySystemInformation(SystemModuleInformation)`, or the 3j pool-residue leak), export
+  resolution over the mapped image, then argument setup per call. Tiers 5–7 need no kernel addresses
+  at all: build the path/key/handle argument, fire the IOCTL, verify the effect out-of-band
+  (`fltmc filters`, `sc query`, `Get-MpComputerStatus`). For these, put the **verification** in the
+  PoC rather than a kill loop — the deliverable is "WdFilter did not load after reboot", not a dead
+  PID. Snapshot the VM before any Tier-5 run; deleting the wrong driver leaves it unbootable.
 - **Tier 3 Defender-specific (24H2+):** for a complete Defender kill that survives reboot, the
   PoC must bypass **three independent protection layers** (section 3d in
   `references/KILL_PRIMITIVES.md`): (a) strip PPL by writing 0x00 to EPROCESS.Protection
@@ -176,8 +249,10 @@ Match the repo's conventions: a `README.md` per killer (SHA256, LOLDrivers link,
 the `.sys` committed next to the binary, `opt-level="z"` + `lto` + `strip` + `panic="abort"`.
 
 ### Phase 5 — Validate on the VM
-Load the driver (`sc create X type= kernel binPath= …\X.sys` + `sc start X`, or let the target
-product load it for the LPE variant), run the killer against a benign target first
+Load the driver (`sc create X type= kernel binPath= …\X.sys` + `sc start X`, or — quieter and
+often already available — let the vendor's own installed service load it; see gate 1 in
+`references/LOAD_AND_AUTH_BYPASS.md`, and work that file's five-gate verification checklist before
+concluding a driver is unexploitable). Run the killer against a benign target first
 (`notepad.exe`), confirm the kill, then against the intended EDR/Defender process on the VM.
 Confirm with WinDbg if available: break, `!drvobj`, `!devobj`, watch the dispatch. For Tier 3,
 verify the primitive independently (read a known kernel VA, compare to `dd`) before trusting the
@@ -211,16 +286,36 @@ disclosure.
   `*(buf+offset)` read. Get that offset exact from the sink; a wrong offset = no kill.
 - **Tier decides shape.** Don't force a physical-R/W driver into the `DriverConfig` trait, and
   don't hand-roll SCM for a plain terminate IOCTL — `byovd-lib` already does it.
+- **A new driver must add a new primitive.** If the candidate lands in a class the collection has
+  already reproduced twice and brings no new bypass, say so and name a class that is still missing
+  (`TARGET_SELECTION.md`). An unfinished primitive on a driver already in the repo usually beats a
+  fresh `.sys`.
+- **A blocked gate is not a dead end.** Caller validation, an address blocklist or an index table is
+  usually bypassable (handle theft, map-from-zero, a weak bound) — and an incomplete check is itself
+  a finding. Work all five gates in `LOAD_AND_AUTH_BYPASS.md` before filing a driver as unusable,
+  and record it in `examined-dead-ends.md` with the reason if it truly is.
 - **VM-only for detonation.** The `.sys` is a known-vulnerable, often-signed driver and the tool
   disables security software. Isolated VM the user owns, always.
 
 ## Pointers
+- `references/TARGET_SELECTION.md` — **which driver to hunt next**: count primitives not drivers,
+  the saturation check, the freshness gate, the ranking of primitives by how many kill-chain stages
+  they delete, where fresh unlisted drivers actually come from (bundled consumer utilities, AV and
+  anti-rootkit toolkits, backup/imaging, storage and OEM tools), and a one-command import-grep
+  screening table covering all seven classes.
 - `references/DRIVER_ANATOMY.md` — the six-step reverse chain with the exact idalib query per
   step, IOCTL method decoding, and how to read the PID offset out of the sink.
-- `references/KILL_PRIMITIVES.md` — the tiered catalog: direct-terminate, handle-stomp, and the
-  physical-R/W toolkit (CR3 brute, export resolution, Shadow-SSDT + Win32k-stub hijack, two-stage
-  shellcode, HalTranslateBusAddress fail-open, LSTAR KASLR bypass), each with import signatures
-  and the reproduced example from the BYOVD repo.
+- `references/LOAD_AND_AUTH_BYPASS.md` — the five gates between a reachable sink and a landed
+  IOCTL: image load (block list, vendor-installed drivers), device open (SDDL, exclusive, no
+  symlink), **caller validation** (image-hash checks beaten by handle theft), **argument
+  validation** (physical-address blocklists, mapping-API choice vs `MiShowBadMapper`, weak index
+  bounds, incomplete CVE fixes), and load telemetry.
+- `references/KILL_PRIMITIVES.md` — the catalog of all seven classes: direct-terminate,
+  handle-stomp, the memory toolkit (CR3 brute, export resolution, Shadow-SSDT + Win32k-stub
+  hijack, two-stage shellcode, `HalTranslateBusAddress` fail-open, LSTAR KASLR bypass, UAF,
+  SMN/SMU, pool-residue leak, MSR write, **kernel-VA R/W 3l**, **PCI→DMA 3m**), **kernel function
+  call**, **kernel file ops**, **kernel registry write**, and **callback teardown** — each with
+  import signatures, PPL/HVCI posture, and the reproduced example or an honest "none yet".
 - `references/BYOVD_LIB.md` — the `DriverConfig` trait, the five typed IOCTL dispatch shapes, the
   trait-override cheatsheet, and the low-level API for standalone/custom flows.
 - `templates/killer_main.rs` — a fill-in Tier-1 `DriverConfig` killer.
