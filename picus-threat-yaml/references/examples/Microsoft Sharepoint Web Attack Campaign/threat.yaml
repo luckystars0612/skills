@@ -1,0 +1,564 @@
+campaign:
+    name: Microsoft Sharepoint Web Attack Campaign
+    description: This campaign includes Microsoft Sharepoint vulnerabilities. The purpose of the campaign is to cover Microsoft Sharepoint's web attacks and also CVE-2021-31181, CVE-2020-16952, CVE-2020-1147, CVE-2019-0604, CVE-2020-0932, CVE-2020-0646, CVE-2018-8284, CVE-2017-8514, CVE-2013-0081, CVE-2023-29357, CVE-2025-53770, CVE-2026-50522, CVE-2026-55040.
+    module: Web Application
+    severity: High
+    affected_os:
+        - macOS
+        - Linux
+        - Windows
+    affected_products:
+        - Microsoft Office
+        - Microsoft SharePoint
+    result_condition:
+        true: unblocked
+        false: blocked
+        condition:
+            Terms:
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-1%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-2%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-3%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-4%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-5%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-6%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-7%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-8%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-9%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-10%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-11%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-12%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-13%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-14%'
+                  Operator: eq
+            Operator: or
+    objectives:
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: SharePoint Remote Code Execution via Workflow Bypass
+              title: Exploitation
+              description: This attack includes a payload that exploits a critical remote code execution vulnerability in Microsoft SharePoint. A successfully exploit case of this issue may cause allowing to execute arbitrary codes on the victim system by the attacker who gained low privileged from the system.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+              affected_product: Microsoft SharePoint
+              affected_versions:
+                - Microsoft .NET Framework 2.0 - 4.7.2, SharePoint Server 2010 - 2016
+              cve: CVE-2018-8284
+              cwe: CWE-20
+              owasp: Injection
+              use_case: Known Vulnerability
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page291186")
+              request_content: files/913.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Microsoft SharePoint Denial of Service
+              title: Exploitation
+              description: Microsoft SharePoint is prone to a denial-of-service vulnerability. An attacker can exploit this issue to cause the application to become unresponsive, denying service to legitimate users.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+              affected_product: Microsoft Office
+              affected_versions:
+                - 2003 SP3, Server 2007 SP3, 2010 SP1 and SP2, and 2013
+              cve: CVE-2013-0081
+              cwe: CWE-20
+              owasp: Vulnerable and Outdated Components
+              use_case: Known Vulnerability
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page298707")
+              request_content: files/948.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Microsoft SharePoint XSS Vulnerability CVE-2017-8514
+              title: Exploitation
+              description: This attack contains an XSS payload that affected to Microsoft SharePoint. An attacker can use such an XSS attack to send a malicious script to an unsuspecting user. Because the end user's browser thinks the script came from a trusted source, the malicious script can access any cookies, session tokens, or other sensitive information retained by your browser and used with that site.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+              affected_product: Microsoft SharePoint
+              affected_versions:
+                - SharePoint Enterprise Server 2016
+              cve: CVE-2017-8514
+              cwe: CWE-79
+              owasp: Injection
+              use_case: Known Vulnerability
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page330293")
+              request_content: files/1028.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: SharePoint Remote Code Execution via WebParts
+              title: Exploitation
+              description: This attack includes a payload that exploits a critical remote code execution vulnerability in Microsoft SharePoint using WebParts. SharePoint does not restrict available Types for properties when it parses the XML configuration of WebParts. For a property, an attacker may specify a string and a type name, and SharePoint will attempt to convert the string using a TypeConverter corresponding to the specified type. Furthermore, this vulnerability is marked as CVE-2020-0932.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+              affected_product: Microsoft SharePoint
+              affected_versions:
+                - SharePoint Enterprise Server 2016, SharePoint Foundation 2013, SharePoint Server 2019
+              cve: CVE-2020-0932
+              cwe: CWE-434
+              owasp: Vulnerable and Outdated Components
+              use_case: Known Vulnerability
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page549830")
+              request_content: files/1523.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: SharePoint Server DataFormWebPart CreateChildControls Remote Code Execution
+              title: Exploitation
+              description: This attack includes a payload that exploits a critical remote code execution vulnerability in Microsoft SharePoint server DataFormWebPart CreateChildControls. A remote code execution vulnerability exists in Microsoft SharePoint when the software fails to check the source markup of an application package. An attacker who successfully exploited the vulnerability could run arbitrary code in the context of the SharePoint application pool and the SharePoint server farm account. Furthermore, this vulnerability is marked as CVE-2020-16952.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+              affected_product: Microsoft SharePoint
+              affected_versions:
+                - SharePoint Enterprise Server 2016, SharePoint Foundation 2013, SharePoint Server 2019
+              cve: CVE-2020-16952
+              cwe: CWE-346
+              owasp: Injection
+              use_case: WebServer Attack - Deserialization
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page592989")
+              request_content: files/1606.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: SharePoint Remote Code Execution via Workflows
+              title: Exploitation
+              description: This attack includes a payload that exploits a critical remote code execution vulnerability in Microsoft SharePoint. A successfully exploit case of this issue may cause allowing to execute arbitrary codes on the victim system by the attacker. Furthermore, this vulnerability is marked as CVE-2020-0646.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+              affected_product: Microsoft SharePoint
+              cve: CVE-2020-0646
+              cwe: CWE-20
+              owasp: Injection
+              use_case: Known Vulnerability
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page740045")
+              request_content: files/1943.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: SharePoint DataSet/DataTable Remote Code Execution Vulnerability Variant-1
+              title: Exploitation
+              description: This attack includes a payload that exploits a critical remote code execution vulnerability in Microsoft SharePoint. The privileges in this execution context are determined by the account that is specified when SharePoint is installed and configured. The vulnerability is related to a failure to validate the source of XML input data, leading to an unsafe deserialization operation that can be triggered from a page that initializes either the ContactLinksSuggestionsMicroView type or a derivative of it. In a default configuration, a Domain User account is sufficient to access SharePoint and exploit this vulnerability. Furthermore, this vulnerability is marked as CVE-2020-1147.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+              affected_product: Microsoft SharePoint
+              affected_versions:
+                - SharePoint Server 2010, 2019; SharePoint Enterprise Server 2013, 2016; .NET Framework 2.0-4.8; .NET Core 2.1, 3.1
+              cve: CVE-2020-1147
+              cwe: CWE-20
+              owasp: Software and Data Integrity Failures
+              use_case: Known Vulnerability
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page751022")
+              request_content: files/1967.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: SharePoint Remote Code Execution via ItemPicker Web Control Deserialization
+              title: Exploitation
+              description: This attack includes a payload that exploits a critical remote code execution vulnerability in Microsoft SharePoint using ItemPicker Web Control. This vulnerability is caused by uncontrolled deserialization of data coming from outside the application. Furthermore, this vulnerability is marked as CVE-2019-0604.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+              affected_product: Microsoft SharePoint
+              affected_versions:
+                - SharePoint Enterprise Server 2016, SharePoint Foundation 2013, SharePoint Server 2010, SharePoint Server 2019
+              cve: CVE-2019-0604
+              cwe: CWE-20
+              owasp: Software and Data Integrity Failures
+              use_case: Known Vulnerability
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page836508")
+              request_content: files/2162.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Microsoft SharePoint Authentication Bypass Vulnerability Variant-1
+              title: Exploitation
+              description: This attack includes a GET request to exploit the authentication bypass on vulnerable Microsoft SharePoint. Additionally, adversaries can chain this vulnerability with a Remote Code Execution attack. Also, there is no need to be authenticated to exploit this vulnerability with this attack. Furthermore, this vulnerability is marked as CVE-2023-29357.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Microsoft SharePoint
+              affected_versions:
+                - version = SharePoint 2019 (16.0.10396.20000)
+              cve: CVE-2023-29357
+              cwe: CWE-347
+              owasp: Cryptographic Failures
+              use_case: WebServer Attack - Unauthorized Access
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page743001")
+              request_content: files/3878.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Microsoft SharePoint Remote Code Execution Vulnerability
+              title: Exploitation
+              description: This attack includes a payload that exploits a critical remote code execution vulnerability in Microsoft SharePoint server. This vulnerability could be used by an authenticated user to execute arbitrary code on the server in the context of the service account of the SharePoint web application. Furthermore, this vulnerability is marked as CVE-2021-31181.
+              affected_os:
+                - Windows
+              affected_platforms:
+                - name: Windows 10
+                  architecture: 64-bit
+              affected_versions:
+                - 2013 SP1, 2016, 2019
+              cve: CVE-2021-31181
+              cwe: CWE-94
+              owasp: Injection
+              use_case: WebServer Attack - RCE
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              keyword_queries:
+                - ("page594271")
+              request_content: files/23.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Microsoft SharePoint Server Remote Code Execution Vulnerability Variant-1
+              title: Exploitation
+              description: This attack includes a GET request to Microsoft SharePoint Server Remote Code Execution Vulnerability. This exploitation activity, publicly reported as “ToolShell,” provides unauthenticated access to systems and enables malicious actors to fully access SharePoint content, including file systems and internal configurations, and execute code over the network. Furthermore, this vulnerability is marked as CVE-2025-53770.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Microsoft SharePoint
+              affected_versions:
+                - Microsoft SharePoint Server Subscription Edition
+                - Microsoft SharePoint Server 2019
+                - Microsoft SharePoint Server 2016
+              cve: CVE-2025-53770
+              cwe: CWE-502
+              owasp: Injection
+              use_case: WebServer Attack - Unauthorized Access
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page5397652")
+              request_content: files/5826.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Microsoft SharePoint Server Remote Code Execution Vulnerability Variant-2
+              title: Exploitation
+              description: This attack includes a POST request to Microsoft SharePoint Server Remote Code Execution Vulnerability. This exploitation activity, publicly reported as “ToolShell,” provides unauthenticated access to systems and enables malicious actors to fully access SharePoint content, including file systems and internal configurations, and execute code over the network. Furthermore, this vulnerability is marked as CVE-2025-53770.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Microsoft SharePoint
+              affected_versions:
+                - Microsoft SharePoint Server Subscription Edition (< 16.0.18526.20508), 2019, 2016
+              cve: CVE-2025-53770
+              cwe: CWE-502
+              owasp: Software and Data Integrity Failures
+              use_case: WebServer Attack - Unauthorized Access
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page5301055")
+              request_content: files/5828.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Microsoft SharePoint Server Unauthenticated Deserialization RCE Vulnerability Variant-1
+              title: Exploitation
+              description: This attack includes a POST request to Microsoft SharePoint Server Unauthenticated Deserialization RCE Vulnerability. Deserialization of untrusted data in Microsoft Office SharePoint allows an unauthorized attacker to execute code over a network. Furthermore, this vulnerability is marked as CVE-2026-50522.
+              comment: verified by testanull
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Microsoft SharePoint
+              affected_versions:
+                - Microsoft SharePoint Server 2016, 2019
+                - Microsoft SharePoint Server Subscription Edition
+              cve: CVE-2026-50522
+              cwe: CWE-502
+              owasp: Software and Data Integrity Failures
+              use_case: WebServer Attack - RCE
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              is_wats_lite: true
+              keyword_queries:
+                - ("page5309116")
+              request_content: files/6082.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Microsoft SharePoint Server Security Feature Bypass Vulnerability Variant-1
+              title: Exploitation
+              description: This attack includes a GET request to  Microsoft SharePoint Server Security Feature Bypass Vulnerability. Weak authentication in Microsoft Office SharePoint allows an unauthorized attacker to bypass a security feature over a network.. Furthermore, this vulnerability is marked as CVE-2026-55040.
+              comment: verified by rapid7
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Microsoft SharePoint
+              affected_versions:
+                - Microsoft SharePoint Enterprise Server 2016 - from 16.0.0 before 16.0.5561.1001
+                - Microsoft SharePoint Server 2019 - from 16.0.0 before 16.0.10417.20175
+              cve: CVE-2026-55040
+              owasp: Software and Data Integrity Failures
+              use_case: WebServer Attack - Unauthorized Access
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              is_wats_lite: true
+              keyword_queries:
+                - ("page5385296")
+              request_content: files/6085.req

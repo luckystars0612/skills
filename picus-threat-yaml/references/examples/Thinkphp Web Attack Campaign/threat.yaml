@@ -1,0 +1,287 @@
+campaign:
+    name: Thinkphp Web Attack Campaign
+    description: This campaign includes Thinkphp vulnerabilities. The purpose of the campaign is to cover Thinkphp's web attacks and also CVE-2018-20062, CVE-2018-20062, CVE-2019-9082.
+    module: Web Application
+    severity: High
+    affected_os:
+        - macOS
+        - Windows
+        - Linux
+    affected_products:
+        - ThinkPHP
+    result_condition:
+        true: unblocked
+        false: blocked
+        condition:
+            Terms:
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-1%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-2%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-3%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-4%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-5%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-6%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-7%'
+                  Operator: eq
+            Operator: or
+    objectives:
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: ThinkPHP Remote Code Execution Vulnerability Variant-3
+              title: Exploitation
+              description: This attack includes a payload of the ThinkPHP Remote Code Execution Vulnerability for v5.x below v5.0.23. This vulnerability allows remote attackers to execute arbitrary code on vulnerable installations.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - Linux
+              affected_product: ThinkPHP
+              affected_versions:
+                - v5.x below v5.0.23
+              cve: CVE-2018-20062
+              cwe: CWE-78
+              owasp: Injection
+              use_case: Known Vulnerability
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page328996")
+              request_content: files/1024.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: ThinkPHP SQL Injection Vulnerability Variant-3
+              title: Exploitation
+              description: This attack includes a GET request to the ThinkPHP SQL injection attack. ThinkPHP is a popular PHP framework and this SQL injection vulnerability in the ThinkPHP could allow SQL commands attacks for the specific PHP codes.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: ThinkPHP
+              affected_versions:
+                - N/A
+              cwe: CWE-89
+              owasp: Injection
+              use_case: WebServer Attack - SQL Injection
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              is_wats_lite: true
+              keyword_queries:
+                - ("page626094")
+              request_content: files/1685.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: ThinkPHP SQL Injection Vulnerability Variant-1
+              title: Exploitation
+              description: This attack includes a GET request to the ThinkPHP SQL injection attack. ThinkPHP is a popular PHP framework and this SQL injection vulnerability in the ThinkPHP could allow SQL commands attacks for the specific PHP codes.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: ThinkPHP
+              affected_versions:
+                - N/A
+              cwe: CWE-89
+              owasp: Injection
+              use_case: WebServer Attack - SQL Injection
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              is_wats_lite: true
+              keyword_queries:
+                - ("page650073")
+              request_content: files/1740.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: ThinkPHP SQL Injection Vulnerability Variant-2
+              title: Exploitation
+              description: This attack includes a GET request to the ThinkPHP SQL injection attack. ThinkPHP is a popular PHP framework and this SQL injection vulnerability in the ThinkPHP could allow SQL commands attacks for the specific PHP codes.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: ThinkPHP
+              cwe: CWE-89
+              owasp: Injection
+              use_case: WebServer Attack - SQL Injection
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              is_wats_lite: true
+              keyword_queries:
+                - ("page705007")
+              request_content: files/1870.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: ThinkPHP Remote Code Execution Vulnerability Variant-2
+              title: Exploitation
+              description: This attack includes a payload of the ThinkPHP Remote Code Execution Vulnerability for v5.x below v5.0.23. This vulnerability allows remote attackers to execute arbitrary code on vulnerable installations.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - Linux
+              affected_product: ThinkPHP
+              affected_versions:
+                - v5.x below v5.0.23
+              cve: CVE-2018-20062
+              cwe: CWE-78
+              owasp: Injection
+              use_case: Known Vulnerability
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page792606")
+              request_content: files/2064.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: ThinkPHP Remote Code Execution Vulnerability Variant-1
+              title: Exploitation
+              description: This attack includes a payload of the ThinkPHP Remote Code Execution Vulnerability for below 3.2.4 that assigned CVE-2019-9082. This vulnerability allows remote attackers to execute arbitrary code on vulnerable installations.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - Linux
+              affected_product: ThinkPHP
+              affected_versions:
+                - before 3.2.4
+              cve: CVE-2019-9082
+              cwe: CWE-20
+              owasp: Injection
+              use_case: Known Vulnerability
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page868631")
+              request_content: files/2222.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: ThinkPHP Remote Code Execution (RCE) Vulnerability Variant-4
+              description: This attack includes a GET request to ThinkPHP Remote Code Execution attack. It could allow attackers to execute arbitrary code on the system. By sending a specially-crafted request, an attacker could exploit this vulnerability to execute arbitrary code on the system. In the version prior to 6.0.13 are vulnerable.
+              comment: verified by evren
+              affected_os:
+                - Linux
+              cwe: CWE-94
+              owasp: Injection
+              use_case: WebServer Attack - RCE
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              is_wats_lite: true
+              keyword_queries:
+                - ("page777108")
+              request_content: files/2878.req

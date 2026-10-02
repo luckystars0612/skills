@@ -4,8 +4,14 @@
 
 **Canonical examples to use as templates:**
 
-- [Generic XSS Evasion Web Attack Campaign - 14](../../../Desktop/picus-threats/Generic%20XSS%20Evasion%20Web%20Attack%20Campaign%20-%2014/threat.yaml) — 7 XSS actions
-- [Microsoft Sharepoint Web Attack Campaign](../../../Desktop/picus-threats/Microsoft%20Sharepoint%20Web%20Attack%20Campaign/threat.yaml) — 14 SharePoint CVE actions
+- [Generic XSS Evasion Web Attack Campaign - 14](../examples/Generic%20XSS%20Evasion%20Web%20Attack%20Campaign%20-%2014/threat.yaml) — 7 XSS actions
+- [Microsoft Sharepoint Web Attack Campaign](../examples/Microsoft%20Sharepoint%20Web%20Attack%20Campaign/threat.yaml) — 14 SharePoint CVE actions
+- [Thinkphp Web Attack Campaign](../examples/Thinkphp%20Web%20Attack%20Campaign/threat.yaml) — 7 actions, CVE-2018-20062 / CVE-2019-9082, mixes RCE (CWE-78/94) and SQLi (CWE-89)
+- [Authentication Bypass Web Attack Campaign](../examples/Authentication%20Bypass%20Web%20Attack%20Campaign/threat.yaml) — 15 actions, all SQLi-based login-bypass variants (CWE-89), POST form body
+- [Java Deserialization Web Attack Campaign](../examples/Java%20Deserialization%20Web%20Attack%20Campaign/threat.yaml) — 3 actions, CVE-2020-15505 (MobileIron) / CVE-2020-7961 (Liferay), CWE-502
+- [Encoded Uri Web Attack Campaign](../examples/Encoded%20Uri%20Web%20Attack%20Campaign/threat.yaml) — 2 actions, XSS via base64/data-URI encoding evasion
+
+> These four were extracted from real Picus-distributed packages (not hand-authored) and are the source of truth for the `{PICUSID}` placement rule below — they contradicted an earlier, stricter version of that rule.
 
 ---
 
@@ -176,7 +182,12 @@ Accept-Encoding: gzip, deflate
 
 **Format invariants:**
 
-- First line: `<METHOD> /page{PICUSID}/<rest-of-path> HTTP/1.1` — the `{PICUSID}` placeholder is **mandatory**; Picus substitutes it at replay time with the simulated session-specific page id.
+- First line: `<METHOD> <path-containing-{PICUSID}> HTTP/1.1` — the `{PICUSID}` placeholder is **mandatory somewhere in the path**, but it is **not required to be its own `/page{PICUSID}/` segment**. Picus substitutes it at replay time with the simulated session-specific page id regardless of where in the path it sits. Confirmed variants seen in real, Picus-distributed packages (not just hand-authored ones):
+  - `/page{PICUSID}/index.php?s=...` — own segment (the common case, use this by default when there's no reason to do otherwise)
+  - `/page{PICUSID}.htm` — glued directly to a file extension, no trailing slash
+  - `/loginpage{PICUSID}.htm` — glued onto a literal word (`loginpage`) with no delimiter at all
+  - `/page{PICUSID}/cli` — own segment followed by more path
+  Pick whichever form matches the real endpoint path you're imitating (e.g. a login page can legitimately be `/loginpage{PICUSID}.htm` instead of forcing an artificial `/page{PICUSID}/login.htm`). The only hard rule is that the literal token `{PICUSID}` must appear once in the path — write it verbatim as `{PICUSID}` and move on; Picus owns what actual value goes there at replay time, not the author.
 - Subsequent lines: HTTP headers, one per line.
 - **NEVER emit a `Host:` header.** The target host and port are supplied by the Picus assessment configuration at replay time, not by the `.req` file. Adding `Host:` conflicts with that injection and is wrong. None of the canonical examples contain a `Host:` line — the request line is followed directly by `User-Agent`. This applies even when the attack targets a specific host or a non-standard port (e.g. SAP on `:50000`): the host/port belongs in the assessment target, not the request file. Do not add `Host:` "to be safe" or because a captured request had one.
 - The only headers to include are the ones the attack actually needs: `User-Agent`, `Accept`, `Accept-Language`, `Accept-Encoding`, plus `Authorization` / `Content-Type` / `Content-Length` / `Cookie` when the request body or auth requires them. No `Host`, and no invented headers.
@@ -209,7 +220,7 @@ keyword_queries:
     - ("page5356229")
 ```
 
-The number `5356229` is a Picus-internal page/asset ID that matches the `.req` file. This is only a tracking key — no detection logic. Use the bare `("page<digits>")` form **only** when the threat will be graded purely by an inline WAF that inspects the request; it is **not** searchable in downstream logs (see next section).
+The number `5356229` is a Picus-internal page/asset ID that matches the `.req` file. This is only a tracking key — no detection logic. **The literal word is always `page`, even when the `.req` file's own path uses a different word for its `{PICUSID}` placeholder** (e.g. a `.req` whose first line is `POST /loginpage{PICUSID}.htm` still gets `keyword_queries: [("page155738")]` — confirmed on the real Authentication Bypass Web Attack Campaign package). Do not try to match the keyword-query prefix to the path's wording; always use bare `page<digits>`. Use this form **only** when the threat will be graded purely by an inline WAF that inspects the request; it is **not** searchable in downstream logs (see next section).
 
 ---
 
@@ -346,7 +357,8 @@ The path arm carries most vendors; the query/body/header arms raise precision wh
 - [ ] Each action has `cwe`, `owasp`, `use_case` set from the vocabulary tables
 - [ ] Each action's `keyword_queries` is content-based and log-resilient: an **OR of self-sufficient arms** (path arm + query/body/header arms), every token present verbatim in the `.req`, at least one **path-only** arm — NOT a bare `("page<digits>")` unless grading is pure inline-WAF (page ids are unpredictable at replay and unsearchable in logs)
 - [ ] Each action has `request_content: files/<digits>.req` and a matching `.req` file exists in `files/`
-- [ ] The `.req` file's first line uses `/page{PICUSID}/…` (mandatory placeholder)
+- [ ] The `.req` file's first line contains the literal `{PICUSID}` token somewhere in the path (mandatory) — it does not need to be its own `/page{PICUSID}/` segment; `/page{PICUSID}.htm` or `/loginpage{PICUSID}.htm` are both valid, confirmed forms
+- [ ] `keyword_queries` page-id form always uses the literal word `page<digits>`, regardless of what word the `.req` path actually uses for its `{PICUSID}` placeholder
 - [ ] The `.req` file has **NO `Host:` header** (target host/port comes from the assessment config, not the request file) — the request line is followed directly by `User-Agent`
 - [ ] If `cve` is set, add it; if `cwe` is set, validate against the CWE catalog
 - [ ] Objective `result_condition` references `%action-1%`, Operator `or`

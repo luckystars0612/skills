@@ -1,0 +1,814 @@
+campaign:
+    name: PDF Format Data Exfiltration Campaign
+    description: This campaign includes exfiltrating documents with PDF format.
+    module: Data Exfiltration
+    severity: High
+    affected_os:
+        - Windows
+        - macOS
+        - Linux
+    result_condition:
+        true: unblocked
+        false: blocked
+        condition:
+            Terms:
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-1%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-2%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-3%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-4%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-5%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-6%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-7%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-8%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-9%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-10%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-11%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-12%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-13%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-14%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-15%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-16%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-17%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-18%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-19%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-20%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-21%'
+                  Operator: eq
+            Operator: or
+    objectives:
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: United Arab Emirates Financial Data Information Exfiltration PDF Format (25 records)
+              title: Exfiltration
+              description: 'This attack includes uploading a document that contains the following Financial Data Information specialized for United Arab Emirates in .pdf format: Name Surname, Emirates ID, IBAN, Credit Card Number. Sample data: Name Surname:Assad Alim, Emirates ID:784-1950-9455365-1, IBAN:AE110354547093502959052, Credit Card Number: 4612541421548467.'
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: United Arab Emirates
+              data_type: PCI (Payment Card Industry)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21442") OR "-21442-" OR "|21442|") OR (("8e3db48339a77fe8f196f404557b90cc416bd74b" OR "fd77ed25f2345c1d23cf18f059dd1073b149ef0152bbc1e03fd167146d1d01eb" OR "5cbdbc2d195832262eadff65e390bfbf") OR ("227448" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/MjI3NDQ4X19fMzZkNWQ1MzctYzc5NC00ZDgzLTg4NDMtNGVmNzJkNDhlODAzLnBkZg==
+                  path: 227448.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Brazil CPF Number Exfiltration  PDF Format (10 Records)
+              title: Exfiltration
+              description: 'This attack includes uploading a document that contains the following CPF number specialized for Brazil  in .pdf format: CPF, Name, Date. Sample data: CPF: 076.713.684-58, Name: Felipe Castro Cardoso, Date of birth: 30.09.1987'
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: Brazil
+              data_type: PII (Personally Identifiable Information)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21419") OR "-21419-" OR "|21419|") OR (("704b1ee938e73f06a758bc4cc9b42de90c6ce15b" OR "dd8853f88be63e88e006e71999e40a503d7b8afe77e101019ee713fbb04a2fb7" OR "dde0d56c598af7c390e74a3df257a929") OR ("248558" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/MjQ4NTU4X19fY2RmYzU3OGMtMDgyMS00NjBjLWI0NmYtYTg0MTQzNDRjZDgxLnBkZg==
+                  path: 248558.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: UK PCI and PII Information Exfiltration including NINO, Credit Card, Address,Phone Encrypted PDF Format (25 records)
+              title: Exfiltration
+              description: 'This attack includes uploading a document that contains the following Payment Card Industry (PCI) data and Personally Identifiable Information (PII) specialized for United Kingdom in .pdf format: full name, NINO, credit card type, credit card number, expire date, CVV2 number, street address, town, region, postcode, country and geolocation information consisted of latitude and longitude. According to the PCI Security Standards Council (SSC), sensitive PCI data includes cardholder name, credit card number, expiration date, full magnetic stripe data, CAV2, CVC2, CVV2, CID and PINs. This file also contains PII, which is any data that could potentially identify a specific individual. Sample data: Name: Isabelle McKenzie NINO: CZ 45 38 34 A Credit Card Type: Visa Credit Card Number: 4716 6571 2100 5460: Expires: 05/17 CVV2: 312 Street Address: 64 Baldock Street Town Allendale Region Northumberland Postcode: NE47 0FF Country: England Latitude: 54.92894 Longitude: -2.25127'
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: United Kingdom
+              data_type: PII (Personally Identifiable Information)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21586") OR "-21586-" OR "|21586|") OR (("e4f4bbb2405daf6f906e8a8780f6e7603216d2fb" OR "d49ad4258c41e2b00429957e345c6dd8018b4f0ab4fae8097506872d2ce49a42" OR "643936330e7e1597bde929ca555040ad") OR ("250297" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/MjUwMjk3X19fMjZkNmYwZWYtNGJkOS00MmU5LThiMzQtNTMxMGRlZmE3YjdkLnBkZg==
+                  path: 250297.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Spain PCI and PII Info. Exfiltration including Full Credit Card Info in PDF Format (50 records)
+              title: Exfiltration
+              description: 'This attack includes uploading a document that contains the following Payment Card Industry (PCI) data and Personally Identifiable Information (PII) specialized for SPAIN in .PDF format. PCI data includes Full Credit Card. This file also contains PII, which is any data that could potentially identify a specific individual. This file includes the following information for 50 persons: Primer Apellido,Segunda Apellido,Nombre, Nomero de Tarjeta,Fecha de Vencimiento,Codigo de Validacion,Marca,Banco. Sample data: 027454282X, LOSADA, GOMEZ, M CARMEN, 4343 8741 4205 6361, 2019/06, 241, Visa, Iberia Cards.'
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: Spain
+              data_type: PCI (Payment Card Industry)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21543") OR "-21543-" OR "|21543|") OR (("04f3ad335a1fecf65dd2e83062d7d48b1f2fb349" OR "bb743855c3f0f9495e323c68150630a35de2ecc89649b692c31f8bcc8e59beb2" OR "ba28d529e4a9e3d032a091e631792f68") OR ("260438" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/MjYwNDM4X19fY2ZjNTY1ZmQtNGY3ZS00MDc3LTg0MzEtNGMxZGY4Y2E5ODExLnBkZg==
+                  path: 260438.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: TR PCI and PII Exfiltration including TC Kimlik No Credit Card in PDF Format (20 records)
+              title: Exfiltration
+              description: 'This attack includes uploading a document that contains the following Payment Card Industry (PCI) data and Personally Identifiable Information (PII) specialized for Turkey in PDF format: first name, last name, TC kimlik no (national identifier), birth date, birth place, credit card number, expire date, CVV2 number, card issuer bank and credit card type. According to the PCI Security Standards Council (SSC), sensitive PCI data includes cardholder name, credit card number, expiration date, full magnetic stripe data, CAV2, CVC2, CVV2, CID and PINs. This file also contains PII, which is any data that could potentially identify a specific individual. Sample data: Ad: Erdi Soyad: Ozturk Nufus Cuzdani Seri No: K19 555360 TC Kimlik: 39918519656 Dogum Tarihi: 20.08.1981 Dogum Yeri: Tavas Kredi Karti Numarasi: 5890 0400 0000 0016 KK Son Kullanma: 12/12 KK CVV2: 679 Banka: Akbank Kart Tipi: Master Card (Debit)'
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: Turkey
+              data_type: PCI (Payment Card Industry)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21490") OR "-21490-" OR "|21490|") OR (("3d23ef706dbdc697bb629587e90f8c7b8dcb20f7" OR "87096dce79f5820f79978a46a5d760570e9fc3af62d879de3b62719387acec3c" OR "aea272febae1ba92c6b3004c33b4b455") OR ("329883" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/MzI5ODgzX19fM2UyYWMyN2YtMjViOC00ZjMxLTkxMmItNGI2MmE0NWM1Mzg2LnBkZg==
+                  path: 329883.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: U.K. Personally Identifiable Information (PII) Exfiltration PDF Format (25 records)
+              title: Exfiltration
+              description: 'This attack includes uploading a document that contains the following U.K. Personally Identifiable Information (PII) specialized for United Kingdom in .pdf format: name, passportnumber, national health service. Sample data: name:Isabelle McKenzie, passportnumber:396264744, national health service:419 860 9746.'
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: United Kingdom
+              data_type: PII (Personally Identifiable Information)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21450") OR "-21450-" OR "|21450|") OR (("a3256d4e25ada6b0c7c91adc5b61706152f6378e" OR "9f40baffe32792e33c98985f4cc2bbccb51c3ca94348ce3e7c97b42f5feaea4f" OR "8d159e57cb7e03c2ba48492ce110f8a1") OR ("351406" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/MzUxNDA2X19fOGNjNzgyMjMtYzlmYi00NDkwLWI3YmMtOWQ1ODJjOTU4YzBiLnBkZg==
+                  path: 351406.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: U.K. Financial Data Information Exfiltration PDF Format (25 records)
+              title: Exfiltration
+              description: 'This attack includes uploading a document that contains the following U.K. Financial Data Information specialized for United Kingdom in .pdf format: name, swiftcode, IssuingNetwork, card number. Sample data: name: Isabelle McKenzie, swiftcode: LUMIGB22, IssuingNetwork: American Express, card number: 345875524172508.'
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: United Kingdom
+              data_type: PCI (Payment Card Industry)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21451") OR "-21451-" OR "|21451|") OR (("26d02743bde6fddaf7533c00a4be590ce95f5d92" OR "982df81c3d7af02ca0bc0b75b892a8dc13573d74d4ef4797e83ed3a1d14067aa" OR "419580957da7a5789b8d54a109c32eab") OR ("372419" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/MzcyNDE5X19fOTYyNGQ1NzQtN2Q5ZC00ZGM2LWFmODEtOGYwYmIwMDY0MTllLnBkZg==
+                  path: 372419.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: CMS 838 MEDICARE CREDIT BALANCE REPORT Exfiltration PDF Format
+              title: Exfiltration
+              description: 'This attack includes uploading a document that contains the MEDICARE CREDIT BALANCE REPORT data for the for the United States government in .pdf format. Data fields are: a description of the patient, the patients condition for which treatment was provided, the services provided. Sample data: Murpthy,B- 1EG4TE5MK72-1019091099840-111-12.102019.-12.10.2019-12.10.2019-CLOSED-900,00-80,00-C-0-1-Paula Smith, 800 Loring Ave,Estancia,NM,87016'
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: United State of America
+              data_type: PII (Personally Identifiable Information)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21422") OR "-21422-" OR "|21422|") OR (("eda3ea0b7bf5a3d76daa573737c89e79babf4e06" OR "4f0577863a80c6b8b1315d1a6dbf6cccdbd0485fab7c20dbde2deb4c305187e3" OR "a411144edb27ab44f2703511f85deef3") OR ("389024" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/Mzg5MDI0X19fZDkwNGZlNzYtYjBmMC00MzExLWE3NTMtMGJhYmMxNzNhMGVmLnBkZg==
+                  path: 389024.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Italy PCI and PII Info. Exfiltration including Full Credit Card Info in PDF Format (25 records)
+              title: Exfiltration
+              description: This attack includes uploading a document that contains the following Payment Card Industry (PCI) data and Personally Identifiable Information (PII) specialized for ITALY in .PDF format. PCI data includes Full Credit Card. This file also contains PII, which is any data that could potentially identify a specific individual. This file includes the following information for 25 persons Nome, Cognome, Indirizzo email, Codice fiscale, Nascita, Indirizzo, Numero di telefono, Carte di credito, Marchio di carte, Banca, BIN. Sample data ZAIRA, CAMPANILE, z.campanilecommercialistisalerno.it, CMPZRA67H49C361Z, 1967, NAPOLI VIA M.CATONE 2, 0818181186, 371771890526665, AMERICAN EXPRESS, AESEL - ITALY CONSUMER CHARGE, 371771
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: Italy
+              data_type: PCI (Payment Card Industry)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21507") OR "-21507-" OR "|21507|") OR (("c028523d429bfe3119b28456eaffcde81df657ce" OR "0c4dcb7d5fd330dde485791aab35cd96d13646722b18beabf6ffc32fb11bcc2f" OR "7f75288880be4689aa6697fed6d83309") OR ("406029" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/NDA2MDI5X19fODQwY2RlMmEtNTJjMS00YjM3LThkZTMtNmFjZjNmMTM3ZjczLnBkZg==
+                  path: 406029.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: U.K. Access to Medical Reports Act Information Exfiltration PDF Format (25 records)
+              title: Exfiltration
+              description: 'This attack includes uploading a document that contains the following Access to Medical Reports Act Information specialized for United Kingdom in .pdf format: name, national insurance number (NINO), national health service. Sample data: name: Isabelle McKenzie, national insurance number: CZ 45 38 34 A, national health service: 419 860 9746.'
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: United Kingdom
+              data_type: PII (Personally Identifiable Information)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21453") OR "-21453-" OR "|21453|") OR (("8d97cc210c9fafec5e53ddedc4120434e043f808" OR "0b8fa61272091470aa735cc44cfe8e5ed4daa5dd2051f75d0de7a46f78a91649" OR "34ffde57de6d3f910e7704d03d8102fd") OR ("408357" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/NDA4MzU3X19fZWE0OTA0NzYtNTQ1OC00MGEwLTlkNWMtNDA5NzE2ZjMwZjdmLnBkZg==
+                  path: 408357.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Spain PCI and PII Info. Exfiltration including DNI, CC, IBAN PDF Format (25 records)
+              title: Exfiltration
+              description: 'This attack includes uploading a document that contains the following Payment Card Industry (PCI) data and Personally Identifiable Information (PII) specialized for SPAIN in .pdf format. PCI data includes cardholder name, credit card number, expiration date and validation code. This file also contains PII, which is any data that could potentially identify a specific individual. This file includes following information for 25 persons: DNI, Primer Apellido, Segunda Apellido, Nombre, Fecha de Nacimento, Tel_fono, M½vil / Celular, Provincia, Nœmero de Tarjeta, Fecha de Vencimiento, Codigo de Validaci½n, Marca, Banco and IBAN. Sample data: 034816747Z, FUENTES GARCIA, DIEGO JOSE, 24/03/1955, 96 525 54 96, 637 868 324, Alicante, 5520 7121 8204 7076, 2019/05, 613, MasterCard, Banco Bilbao Vizcaya Argentaria S.A., ES26 4159 1274 2691 1364 9572'
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: Spain
+              data_type: PCI (Payment Card Industry)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21570") OR "-21570-" OR "|21570|") OR (("714455d90300d562f779a6197b737fcf9b5b7f35" OR "7145fa0115627447b82deb1ce5ccabae1cc61376c20183b95c3a6e2d3a4e3ebf" OR "a2fe995deb870ac17e98edb93c41657f") OR ("542708" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/NTQyNzA4X19fZGE1OTk2ZDYtYzdiOC00NzBmLThkM2QtNDllN2ViZDhjZTMwLnBkZg==
+                  path: 542708.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: International Driver's License Application Data Exfiltration including PII and PCI in PDF Format
+              title: Exfiltration
+              description: 'This attack includes uploading a .pdf file that contains International Driver''s License Application form. This form includes full name, address, date of birth, place of birth, telephone, driver''s license data, credit card number, expiration date, billing address and others. This file contains personally identifiable information (PII), which is any data that could potentially identify a specific individual. The escalation of security breaches involving PII has contributed to the loss of millions of records over the past few years. Breaches involving PII are hazardous to both individuals and organizations. Individual harms may include identity theft, embarrassment, or blackmail; and organizational harms may include a loss of public trust, legal liability, or remediation costs. Sample data: Last name: Patterson First Name: Timothy Current Driver''s License Address: 1802 Parkway Street Apt. # 178 San Diego, CA 90121 4. Address to Mail IDL: 1802 Parkway Street Apt. # 178 San Diego, CA 90121 Telephone: 215-649-0154 Driver''s License #: a1234567 State of Issue: CA Date of Issue: 12/20/2005 Expires On: 11/20/2010'
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: Generic
+              data_type: PII (Personally Identifiable Information)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21638") OR "-21638-" OR "|21638|") OR (("1add52bf672d4f71eb9ea58028da33e857b8a685" OR "43d4fe4b56b53389d4434fea3037213e96d97c6d561975c06f81dede6544474b" OR "17f15bac04491499f13b929d3ce9f759") OR ("623031" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/NjIzMDMxX19fZWYyZDc2M2YtODcyOC00YThkLWI5MTctNjY4NTEzNjVkY2Y5LnBkZg==
+                  path: 623031.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: EDI 837 Healthcare Medical Claims Exfiltration PDF Format
+              title: Exfiltration
+              description: 'This attack includes uploading a document that contains the EDI 837 Healthcare Medical Claims data for the for the United States government in .pdf format. Data fields are: a description of the patient, the patients condition for which treatment was provided, the services provided. Sample data: GS -HC-XXXXXXX-XXXXX-20170617-1741-101-X-005010X222A1'
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: United State of America
+              data_type: PII (Personally Identifiable Information)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21423") OR "-21423-" OR "|21423|") OR (("da5c95193a2870ade4ea5212ba3d404c8be8b840" OR "b40706b3d0017b11d5c51d7233b52d749e9255abc7f09fc8e90d987a7ee514a7" OR "c53a9f8f7be635dca0c2b31dd9d8b746") OR ("624895" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/NjI0ODk1X19fNzdiMzE1OWMtNDljYS00MDE2LTk1OTQtZDQ0YjYxZjQzMGUxLnBkZg==
+                  path: 624895.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: UK PCI and PII Information Exfiltration including NINO, Credit Card, Address,Phone Unselectable PDF Format (25 records)
+              title: Exfiltration
+              description: 'This attack includes uploading a document that contains the following Payment Card Industry (PCI) data and Personally Identifiable Information (PII) specialized for United Kingdom in .pdf format: full name, NINO, credit card type, credit card number, expire date, CVV2 number, street address, town, region, postcode, country and geolocation information consisted of latitude and longitude. According to the PCI Security Standards Council (SSC), sensitive PCI data includes cardholder name, credit card number, expiration date, full magnetic stripe data, CAV2, CVC2, CVV2, CID and PINs. This file also contains PII, which is any data that could potentially identify a specific individual. Sample data: Name: Isabelle McKenzie NINO: CZ 45 38 34 A Credit Card Type: Visa Credit Card Number: 4716 6571 2100 5460: Expires: 05/17 CVV2: 312 Street Address: 64 Baldock Street Town Allendale Region Northumberland Postcode: NE47 0FF Country: England Latitude: 54.92894 Longitude: -2.25127'
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: United Kingdom
+              data_type: PCI (Payment Card Industry)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21609") OR "-21609-" OR "|21609|") OR (("4afe3fe43e796dcc12db87fc99ef62fe0b288f05" OR "2eae26d4c19db153b932e074ff41eb097172402da94ae57695c497b53cae6f83" OR "ebc3dd6866c56507c0b9bc3aae8f1f59") OR ("643744" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/NjQzNzQ0X19fNTYwZWZmNzgtN2U4MC00MDhhLWExOTQtMTE4MTg0MDQxMGQ4LnBkZg==
+                  path: 643744.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Mexico PCI and PII Info. Exfiltration including CURB CC and CLABE in PDF Format (50 records)
+              title: Exfiltration
+              description: 'This attack includes uploading a document that contains the following Payment Card Industry (PCI) data and Personally Identifiable Information (PII) specialized for MEXICO in .PDF format. PCI data includes CC, CLABE and Full Name. This file also contains PII, which is any data that could potentially identify a specific individual. This file includes the following information for 50 persons: CURP,  NOMBRE, CLABE, BANCO. Sample data: SETE040722HNLLRDA4, JESUS ANTONIO, 01 2320 0920 9195 2995, BBVA Bancomer.'
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: Mexico
+              data_type: PCI (Payment Card Industry)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21481") OR "-21481-" OR "|21481|") OR (("51675deb659688e312ca63aa2cbb8c2e4d355b3d" OR "2135e19c4bb7f21f386186db784d8f0e000c1058b665a19d4632b197feb3abca" OR "b9ec607c0e8e76512ee42f395068c787") OR ("671459" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/NjcxNDU5X19fNDMwZTVlOGItMTMxNS00ZjM3LTkxMTItY2M2ODYxY2Y1MGQ1LnBkZg==
+                  path: 671459.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Spain PCI and PII Info. Exfiltration including DNI and Full Name in PDF Format (50 records)
+              title: Exfiltration
+              description: 'This attack includes uploading a document that contains the following Payment Card Industry (PCI) data and Personally Identifiable Information (PII) specialized for SPAIN in .PDF format. PCI data includes DNI and Full Name. This file also contains PII, which is any data that could potentially identify a specific individual. This file includes the following information for 50 persons: DNI,Primer Apellido,Segunda Apellido,Nombre. Sample data: 027454282X, LOSADA,GOMEZ, M CARMEN.'
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: Spain
+              data_type: PII (Personally Identifiable Information)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21552") OR "-21552-" OR "|21552|") OR (("d383eb5a999f951aae49b16fc139a6b022c387c5" OR "8d8383ed3389b20077a1c3183603f9efd3376b0a533a56dd167cc5e347a9648c" OR "030cbbf4ac0517a609ee63eddb2990d4") OR ("714276" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/NzE0Mjc2X19fY2IyYWYyZmItMTY0YS00MzUzLTg0M2ItMTBlYzU3YzgzNDZmLnBkZg==
+                  path: 714276.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Troy Card Exfiltration PDF Format (10 Records)
+              title: Exfiltration
+              description: 'This attack includes uploading a document that contains the following Troy Card informations .pdf format: first name, last name, card number. Sample data: First Name: Seval Last Name: Karaturk Card Number: 9792376700578340'
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: Turkey
+              data_type: PCI (Payment Card Industry)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21425") OR "-21425-" OR "|21425|") OR (("879fd02984e21250f89ce3ab5f964dc82e7f5aab" OR "15fb5851d3c1b1ddf8cf71973689c2f0655fb17a1b3e8410ef096318587c0160" OR "0275560bb825bb79186082a8341fef30") OR ("troy" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/dHJveV9fXzZjNGZkNmEzLTNiYzAtNDAzMC04Nzc2LWQwYzFlNzZlMDYxMy5wZGY=
+                  path: 717652.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: U.K. Personal Information Online Code of Practice Information Exfiltration PDF Format (25 records)
+              title: Exfiltration
+              description: 'This attack includes uploading a document that contains the following U.K. Personal Information Online Code of Practice Information specialized for United Kingdom in .pdf format: name, national insurance number, national health service, swiftcode. Sample data: name:Isabelle McKenzie, national insurance number:CZ 45 38 34 A, national health service:419 860 9746, swiftcode:LUMIGB22.'
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: United Kingdom
+              data_type: PII (Personally Identifiable Information)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21462") OR "-21462-" OR "|21462|") OR (("148fe5f9f9a3191258f60485a8efc4455d7de421" OR "0d86d929ca96430cbbe7050fc12bb84ce7da7e23041b4a0a073a2bade0cfd32e" OR "a185855f36e04adf5b13c1d613b79df9") OR ("752201" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/NzUyMjAxX19fN2Q5NjhkN2EtY2QzZC00MmMzLTk0MGQtMzhlOGQzMmNjNmI3LnBkZg==
+                  path: 752201.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Italy PII Info. Exfiltration including Codice Fiscale in PDF Format (500 records)
+              title: Exfiltration
+              description: This attack includes uploading a document that contains the following Personally Identifiable Information (PII) specialized for ITALY in .PDF format. This file contains PII, which is any data that could potentially identify a specific individual. This file includes the following information for 500 persons, Nome, Cognome, Codice Fiscale, Nascita. Sample data ZAIRA,CAMPANILE,CMPZRA67H49C361Z,1967.
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: Italy
+              data_type: PII (Personally Identifiable Information)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21535") OR "-21535-" OR "|21535|") OR (("9a7fcfa181f6163871674a79cd34ca207b51aae9" OR "94140ce30e9d7e3c94138412fbcfae5edb8004bed4d52952aca6998bb9653479" OR "6cea0cadbc8fc1f68fc8584631ee0b67") OR ("792996" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/NzkyOTk2X19fMjM5NDAwMGUtNGViNS00ODhiLWFjODEtZTA4NzZmODc2ZDU4LnBkZg==
+                  path: 792996.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: TR PII Exfiltration including National Identifier (TC Kimlik No) and Full Name in PDF Format (100 Records)
+              title: Exfiltration
+              description: "This attack includes uploading a .pdf file that contains full name, national identifier (TC kimlik no). This file contains personally identifiable information (PII), which is any data that could potentially identify a specific individual. The escalation of security breaches involving PII has contributed to the loss of millions of records over the past few years. Breaches involving PII are hazardous to both individuals and organizations. Individual harms may include identity theft, embarrassment, or blackmail; and organizational harms may include a loss of public trust, legal liability, or remediation costs.Sample data: TC K_ML_K: 67258160702 ADI: Elif SOYADI: Akg\x81l"
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: Turkey
+              data_type: PII (Personally Identifiable Information)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21620") OR "-21620-" OR "|21620|") OR (("c05a0f5377e9a01d4ce42791c014949fc4a62249" OR "f9b4ee50c6fd27d1e4d47915697f3a39123e02d3a506e46f378c71ea3751d985" OR "3e4459b9ee160a5fc50172b2d5708f5c") OR ("826905" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/ODI2OTA1X19fNWE3NzYxZTktODBjZS00NDU3LWEzYWMtY2RhZjFmYWEzMmFlLnBkZg==
+                  path: 826905.pdf
+                  is_downloaded: true
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: UK PCI and PII Information Exfiltration including NINO, Credit Card, Address,Phone PDF Format (25 records)
+              title: Exfiltration
+              description: 'This attack includes uploading a document that contains the following Payment Card Industry (PCI) data and Personally Identifiable Information (PII) specialized for United Kingdom in .pdf format: full name, NINO, credit card type, credit card number, expire date, CVV2 number, street address, town, region, postcode, country and geolocation information consisted of latitude and longitude. According to the PCI Security Standards Council (SSC), sensitive PCI data includes cardholder name, credit card number, expiration date, full magnetic stripe data, CAV2, CVC2, CVV2, CID and PINs. This file also contains PII, which is any data that could potentially identify a specific individual. Sample data: Name: Isabelle McKenzie NINO: CZ 45 38 34 A Credit Card Type: Visa Credit Card Number: 4716 6571 2100 5460: Expires: 05/17 CVV2: 312 Street Address: 64 Baldock Street Town Allendale Region Northumberland Postcode: NE47 0FF Country: England Latitude: 54.92894 Longitude: -2.25127'
+              comment: auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              country: United Kingdom
+              data_type: NINO (National Insurance Number)
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: Data Exfiltration
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - (((("act_id" AND "21625") OR "-21625-" OR "|21625|") OR (("fa5050ac1220c222d2c52df65f1ead00e5fc7ea4" OR "69cad62a2bcdfe319f4d531ccf5b9b45cba1f82d4c60203ae1e8dadbe25c1f8c" OR "ce77cabc5de5c4802fa4d1cfc5575708") OR ("894785" AND "pdf"))) AND NOT ("picexfil" AND "short-url"))
+              remote_files:
+                - file: files/ODk0Nzg1X19fMDgxNmVmNTEtM2E4Yy00ODk0LWEyN2EtN2E1NmY2OTlmZWU1LnBkZg==
+                  path: 894785.pdf
+                  is_downloaded: true

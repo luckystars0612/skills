@@ -4,8 +4,8 @@
 
 **Canonical examples to use as templates:**
 
-- [CRPX0 Ransomware Download Threat](../../../Desktop/picus-threats/CRPX0%20Ransomware%20Download%20Threat/threat.yaml) — 4 variants (3 `.exe`, 1 `.dll`)
-- [Kimwolf Botnet Download Threat](../../../Desktop/picus-threats/Kimwolf%20Botnet%20Download%20Threat/threat.yaml) — 6 variants (3 `.elf`, 3 `.so`)
+- [CRPX0 Ransomware Download Threat](../examples/CRPX0%20Ransomware%20Download%20Threat/threat.yaml) — 4 variants (3 `.exe`, 1 `.dll`)
+- [Kimwolf Botnet Download Threat](../examples/Kimwolf%20Botnet%20Download%20Threat/threat.yaml) — 6 variants (3 `.elf`, 3 `.so`)
 
 ---
 

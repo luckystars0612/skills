@@ -1,0 +1,233 @@
+campaign:
+    name: Kimwolf Botnet Email Threat
+    description: This threat includes downloading variants of the Kimwolf Botnet.
+    module: Email
+    severity: High
+    affected_os:
+        - Linux
+    result_condition:
+        true: unblocked
+        false: blocked
+        condition:
+            Terms:
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-1%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-2%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-3%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-4%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-5%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-6%'
+                  Operator: eq
+            Operator: or
+    objectives:
+        - type: Delivery
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Kimwolf Botnet .ELF Email Attack Variant-1
+              title: Phishing
+              description: Kimwolf (also tracked as AISURU) is an Android and IoT botnet active since August 2024, primarily targeting Android TV boxes and set-top boxes that are commonly found in both consumer and enterprise environments. The botnet spreads by exploiting an exposed remote debugging interface that ships enabled by default on many Android TV devices, allowing attackers to silently install malware without user interaction. Once compromised, devices are enrolled into a large-scale botnet capable of launching sophisticated denial-of-service attacks that mimic legitimate web browser traffic, making them significantly harder for defenders to filter. Version 7 of Kimwolf introduces a resilient three-tier command infrastructure leveraging blockchain-based domain resolution, encrypted anonymization networks, and local proxy routing — a direct architectural response to prior law enforcement takedown efforts — ensuring the botnet remains operational even if individual control servers are disrupted.
+              affected_os:
+                - Linux
+              malware_family: Kimwolf
+              is_atomic: true
+              ukc_phase: Delivery
+              category: Malicious Code
+              is_applicable_to_all_platforms: true
+              execution_methods:
+                - URL
+              keyword_queries:
+                - (("5554144" AND ("Attachment" OR "URL")) OR (("406647de09a0ffa279756b4ccb344b1b76a333320c5b50fd367901fa006cf0ff" OR "2b66fb6d23be66863185cc1b67cac7410222b0b2" OR "d759364844d78a728505fb0485c3adbc") OR ("d759364844d78a728505fb0485c3adbc" AND "elf")))
+              remote_files:
+                - file: files/ZDc1OTM2NDg0NGQ3OGE3Mjg1MDVmYjA0ODVjM2FkYmNfX19mNzU3YmJlZS03MTNhLTRkYmQtODgzNi0zMTQ1OGUzNWQ2OWIuZWxm
+                  path: d759364844d78a728505fb0485c3adbc.elf
+                  is_downloaded: true
+        - type: Delivery
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Kimwolf Botnet .ELF Email Attack Variant-2
+              title: Phishing
+              description: Kimwolf (also tracked as AISURU) is an Android and IoT botnet active since August 2024, primarily targeting Android TV boxes and set-top boxes that are commonly found in both consumer and enterprise environments. The botnet spreads by exploiting an exposed remote debugging interface that ships enabled by default on many Android TV devices, allowing attackers to silently install malware without user interaction. Once compromised, devices are enrolled into a large-scale botnet capable of launching sophisticated denial-of-service attacks that mimic legitimate web browser traffic, making them significantly harder for defenders to filter. Version 7 of Kimwolf introduces a resilient three-tier command infrastructure leveraging blockchain-based domain resolution, encrypted anonymization networks, and local proxy routing — a direct architectural response to prior law enforcement takedown efforts — ensuring the botnet remains operational even if individual control servers are disrupted.
+              affected_os:
+                - Linux
+              malware_family: Kimwolf
+              is_atomic: true
+              ukc_phase: Delivery
+              category: Malicious Code
+              is_applicable_to_all_platforms: true
+              execution_methods:
+                - URL
+              keyword_queries:
+                - (("5561048" AND ("Attachment" OR "URL")) OR (("345222bca004595977f971d76900b0c65fd9bf9d91c50cd0c5bf5a93f1ad9e49" OR "87a8245f24cdd2667992b8300858c6bdedd3c5a3" OR "036bcb62be72c4663b9564955f93b05f") OR ("036bcb62be72c4663b9564955f93b05f" AND "elf")))
+              remote_files:
+                - file: files/MDM2YmNiNjJiZTcyYzQ2NjNiOTU2NDk1NWY5M2IwNWZfX19mZWRlMTc0OC01YWMwLTRlM2MtYmM5MS00MjEwOTc0OTIxOTguZWxm
+                  path: 036bcb62be72c4663b9564955f93b05f.elf
+                  is_downloaded: true
+        - type: Delivery
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Kimwolf Botnet .ELF Email Attack Variant-3
+              title: Phishing
+              description: Kimwolf (also tracked as AISURU) is an Android and IoT botnet active since August 2024, primarily targeting Android TV boxes and set-top boxes that are commonly found in both consumer and enterprise environments. The botnet spreads by exploiting an exposed remote debugging interface that ships enabled by default on many Android TV devices, allowing attackers to silently install malware without user interaction. Once compromised, devices are enrolled into a large-scale botnet capable of launching sophisticated denial-of-service attacks that mimic legitimate web browser traffic, making them significantly harder for defenders to filter. Version 7 of Kimwolf introduces a resilient three-tier command infrastructure leveraging blockchain-based domain resolution, encrypted anonymization networks, and local proxy routing — a direct architectural response to prior law enforcement takedown efforts — ensuring the botnet remains operational even if individual control servers are disrupted.
+              affected_os:
+                - Linux
+              malware_family: Kimwolf
+              is_atomic: true
+              ukc_phase: Delivery
+              category: Malicious Code
+              is_applicable_to_all_platforms: true
+              execution_methods:
+                - URL
+              keyword_queries:
+                - (("5502337" AND ("Attachment" OR "URL")) OR (("2ec2e85b0358e0c681cb5067489a9086ec97dbbf7e3c952dd9cd496b319d5af5" OR "2675949d9d204dc3bb8848037df319df119aa140" OR "33faca1e0090f6b12eff703daf4606e4") OR ("33faca1e0090f6b12eff703daf4606e4" AND "elf")))
+              remote_files:
+                - file: files/MzNmYWNhMWUwMDkwZjZiMTJlZmY3MDNkYWY0NjA2ZTRfX18wZjAyNjllZS1kNTYyLTQ4ODgtYWFkYS04ZjEyZGMyOTJjMzUuZWxm
+                  path: 33faca1e0090f6b12eff703daf4606e4.elf
+                  is_downloaded: true
+        - type: Delivery
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Kimwolf Botnet .SO Email Attack Variant-1
+              title: Phishing
+              description: Kimwolf (also tracked as AISURU) is an Android and IoT botnet active since August 2024, primarily targeting Android TV boxes and set-top boxes that are commonly found in both consumer and enterprise environments. The botnet spreads by exploiting an exposed remote debugging interface that ships enabled by default on many Android TV devices, allowing attackers to silently install malware without user interaction. Once compromised, devices are enrolled into a large-scale botnet capable of launching sophisticated denial-of-service attacks that mimic legitimate web browser traffic, making them significantly harder for defenders to filter. Version 7 of Kimwolf introduces a resilient three-tier command infrastructure leveraging blockchain-based domain resolution, encrypted anonymization networks, and local proxy routing — a direct architectural response to prior law enforcement takedown efforts — ensuring the botnet remains operational even if individual control servers are disrupted.
+              affected_os:
+                - Linux
+              malware_family: Kimwolf
+              is_atomic: true
+              ukc_phase: Delivery
+              category: Malicious Code
+              is_applicable_to_all_platforms: true
+              execution_methods:
+                - URL
+                - Attachment
+              keyword_queries:
+                - (("5574193" AND ("Attachment" OR "URL")) OR (("9470c68f9b6fe5f90d61891b95623afd7b4298815b0f95e25610e1c09008dc24" OR "5d5c63920934e8eb0c22fa598e6e9efb971325df" OR "2078af54891b32ea0b1d1bf08b552fe8") OR ("2078af54891b32ea0b1d1bf08b552fe8" AND "so")))
+              remote_files:
+                - file: files/MjA3OGFmNTQ4OTFiMzJlYTBiMWQxYmYwOGI1NTJmZThfX180MWNjZjA4ZS0wNjI2LTQ5M2ItODhjYy01ZGU5OThiYmQ0ZWUuc28=
+                  path: 2078af54891b32ea0b1d1bf08b552fe8.so
+                  is_downloaded: true
+        - type: Delivery
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Kimwolf Botnet .SO Email Attack Variant-2
+              title: Phishing
+              description: Kimwolf (also tracked as AISURU) is an Android and IoT botnet active since August 2024, primarily targeting Android TV boxes and set-top boxes that are commonly found in both consumer and enterprise environments. The botnet spreads by exploiting an exposed remote debugging interface that ships enabled by default on many Android TV devices, allowing attackers to silently install malware without user interaction. Once compromised, devices are enrolled into a large-scale botnet capable of launching sophisticated denial-of-service attacks that mimic legitimate web browser traffic, making them significantly harder for defenders to filter. Version 7 of Kimwolf introduces a resilient three-tier command infrastructure leveraging blockchain-based domain resolution, encrypted anonymization networks, and local proxy routing — a direct architectural response to prior law enforcement takedown efforts — ensuring the botnet remains operational even if individual control servers are disrupted.
+              affected_os:
+                - Linux
+              malware_family: Kimwolf
+              is_atomic: true
+              ukc_phase: Delivery
+              category: Malicious Code
+              is_applicable_to_all_platforms: true
+              execution_methods:
+                - URL
+                - Attachment
+              keyword_queries:
+                - (("5501371" AND ("Attachment" OR "URL")) OR (("8242443dfcec66e3fe04cbfa2fbd211ad34065ee07aa93813d792a437caab212" OR "f295e9ab7cdf902e615c8047c26ef85c49844eea" OR "18dcf61dad028b9e6f9e4aa664e7ff92") OR ("18dcf61dad028b9e6f9e4aa664e7ff92" AND "so")))
+              remote_files:
+                - file: files/MThkY2Y2MWRhZDAyOGI5ZTZmOWU0YWE2NjRlN2ZmOTJfX19mOGE2ZjZkMi02NDQ3LTRlYWEtOWI0Mi1iNDZlYzQ2NTQ1ZDAuc28=
+                  path: 18dcf61dad028b9e6f9e4aa664e7ff92.so
+                  is_downloaded: true
+        - type: Delivery
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Kimwolf Botnet .SO Email Attack Variant-3
+              title: Phishing
+              description: Kimwolf (also tracked as AISURU) is an Android and IoT botnet active since August 2024, primarily targeting Android TV boxes and set-top boxes that are commonly found in both consumer and enterprise environments. The botnet spreads by exploiting an exposed remote debugging interface that ships enabled by default on many Android TV devices, allowing attackers to silently install malware without user interaction. Once compromised, devices are enrolled into a large-scale botnet capable of launching sophisticated denial-of-service attacks that mimic legitimate web browser traffic, making them significantly harder for defenders to filter. Version 7 of Kimwolf introduces a resilient three-tier command infrastructure leveraging blockchain-based domain resolution, encrypted anonymization networks, and local proxy routing — a direct architectural response to prior law enforcement takedown efforts — ensuring the botnet remains operational even if individual control servers are disrupted.
+              affected_os:
+                - Linux
+              malware_family: Kimwolf
+              is_atomic: true
+              ukc_phase: Delivery
+              category: Malicious Code
+              is_applicable_to_all_platforms: true
+              execution_methods:
+                - URL
+                - Attachment
+              keyword_queries:
+                - (("5562020" AND ("Attachment" OR "URL")) OR (("421111a57b0a4224c052fa4108d90429d579974b5b5111ed2e58516ba09422ca" OR "c46b363e9d4fee5118174e16f0d02ab05d4bf009" OR "726557aaebee929541f9c60ec86d356e") OR ("726557aaebee929541f9c60ec86d356e" AND "so")))
+              remote_files:
+                - file: files/NzI2NTU3YWFlYmVlOTI5NTQxZjljNjBlYzg2ZDM1NmVfX182MGJkZjMzNy1hZmIzLTQ5ODUtODcxZi01YjBhZTk1MmJlZDkuc28=
+                  path: 726557aaebee929541f9c60ec86d356e.so
+                  is_downloaded: true

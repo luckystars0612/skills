@@ -1,0 +1,139 @@
+campaign:
+    name: Java Deserialization Web Attack Campaign
+    description: This campaign includes Java Deserialization vulnerabilities. The purpose of the campaign is to cover Java Deserialization's web attacks and also CVE-2020-15505, CVE-2020-7961.
+    module: Web Application
+    severity: High
+    affected_os:
+        - Windows
+        - macOS
+        - Linux
+    affected_products:
+        - Jenkins
+        - MobileIron
+        - Liferay Portal
+    result_condition:
+        true: unblocked
+        false: blocked
+        condition:
+            Terms:
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-1%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-2%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-3%'
+                  Operator: eq
+            Operator: or
+    objectives:
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Jenkins XStream Void Instantiation Java DoS Attack
+              title: Exploitation
+              description: This attack includes a payload of a denial of service (DoS) vulnerability that allows an attacker to crash the Java process by providing a speciall- crafted XML to Jenkins for processing using XStream.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Jenkins
+              affected_versions:
+                - 2.56 and Earlier
+              cwe: CWE-502
+              owasp: Software and Data Integrity Failures
+              use_case: WebServer Attack - DoS
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page579899")
+              request_content: files/1588.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: MobileIron MDM Remote Code Execution (RCE) Vulnerability
+              title: Exploitation
+              description: This attack includes a POST request to the MobileIron MDM Remote Code Execution attack. MobileIron's mobile device management (MDM) capabilities the fundamental visibility and IT controls needed to secure, manage, and monitor any corporate or employee-owned mobile device or desktop that accesses business-critical data. This vulnerability using the path normalization and 'LogService' endpoint with serialized Java objects. Furthermore, this vulnerability is marked as CVE-2020-15505.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: MobileIron
+              affected_versions:
+                - 'Core/Connector: <= 10.3.0.3, 10.4.0.0-10.4.0.3, 10.5.1.0, 10.5.2.0, 10.6.0.0; Sentry: 9.7.0-9.7.2, 9.8.0; RDB: <= 2.0.0.1'
+              cve: CVE-2020-15505
+              cwe: CWE-502
+              owasp: Injection
+              use_case: WebServer Attack - RCE
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page638754")
+              request_content: files/1718.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Liferay Remote Code Execution (RCE) via JSONWS Vulnerability
+              title: Exploitation
+              description: This attack includes a POST request to the Liferay Portal Remote Code Execution attack. Deserialization of Untrusted Data in Liferay Portal allows remote attackers to execute arbitrary code via JSON web services (JSONWS). The vulnerability issue was discovered in Liferay prior to 7.2.1 CE GA2 version. Furthermore, this vulnerability is marked as CVE-2020-7961.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Liferay Portal
+              affected_versions:
+                - prior to 7.2.1 CE GA2
+              cve: CVE-2020-7961
+              cwe: CWE-20
+              owasp: Injection
+              use_case: WebServer Attack - RCE
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page888191")
+              request_content: files/2282.req

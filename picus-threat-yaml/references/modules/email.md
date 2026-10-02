@@ -4,8 +4,8 @@
 
 **Canonical examples to use as templates:**
 
-- [Kimwolf Botnet Email Threat](../../../Desktop/picus-threats/Kimwolf%20Botnet%20Email%20Threat/threat.yaml) — 6 variants (3 `.elf` URL, 3 `.so` URL+Attachment)
-- [ChainDrop Malware Dropper Email Threat](../../../Desktop/picus-threats/ChainDrop%20Malware%20Dropper%20Email%20Threat/threat.yaml) — 1 variant (`.js` URL)
+- [Kimwolf Botnet Email Threat](../examples/Kimwolf%20Botnet%20Email%20Threat/threat.yaml) — 6 variants (3 `.elf` URL, 3 `.so` URL+Attachment)
+- [ChainDrop Malware Dropper Email Threat](../examples/ChainDrop%20Malware%20Dropper%20Email%20Threat/threat.yaml) — 1 variant (`.js` URL)
 
 ---
 

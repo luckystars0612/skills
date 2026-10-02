@@ -2,7 +2,7 @@
 
 `module: URL Filtering`
 
-> **No canonical example exists under `~/Desktop/picus-threats/`.** This reference is
+> **No canonical example is bundled for this module.** This reference is
 > compiled from the Picus module vocabulary and the bundled template doc. For exact
 > keyword-queries syntax, cross-check a fresh export from Picus SCV when available.
 

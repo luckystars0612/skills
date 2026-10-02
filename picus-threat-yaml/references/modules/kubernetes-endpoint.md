@@ -4,7 +4,7 @@
 
 **Canonical example to use as a template:**
 
-- [Command and Control Kubernetes Micro Emulation Plan](../../../Desktop/picus-threats/Command%20and%20Control%20Kubernetes%20Micro%20Emulation%20Plan/threat.yaml) — 13 actions, MITRE TA0011 micro emulation, all Linux process execution
+- [Command and Control Kubernetes Micro Emulation Plan](../examples/Command%20and%20Control%20Kubernetes%20Micro%20Emulation%20Plan/threat.yaml) — 13 actions, MITRE TA0011 micro emulation, all Linux process execution
 
 ---
 

@@ -4,7 +4,7 @@
 
 **Canonical example to use as a template:**
 
-- [Realst Infostealer Campaign](../../../Desktop/picus-threats/Realst%20Infostealer%20Campaign/threat.yaml) — 7 actions across Discovery → Credential Access → Collection
+- [Realst Infostealer Campaign](../examples/Realst%20Infostealer%20Campaign/threat.yaml) — 7 actions across Discovery → Credential Access → Collection
 
 ---
 

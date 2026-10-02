@@ -2,7 +2,7 @@
 
 `module: Azure Cloud Emulation` / `AWS Cloud Emulation` / `GCP Cloud Emulation`
 
-> **No canonical example exists under `~/Desktop/picus-threats/`.** This reference is
+> **No canonical example is bundled for this module.** This reference is
 > compiled from the bundled template doc and Picus module vocabulary. Cloud Emulation
 > differs from Endpoint modules in that the execution primitive is `steps:` (not
 > `play_processes:`) and the unit being tested is the cloud control plane, not an

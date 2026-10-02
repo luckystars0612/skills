@@ -4,7 +4,7 @@
 
 **Canonical example to use as a template:**
 
-- [PDF Format Data Exfiltration Campaign](../../../Desktop/picus-threats/PDF%20Format%20Data%20Exfiltration%20Campaign/threat.yaml) — 21 actions, one per country/data-type combo, each with a sample PDF in `files/`
+- [PDF Format Data Exfiltration Campaign](../examples/PDF%20Format%20Data%20Exfiltration%20Campaign/threat.yaml) — 21 actions, one per country/data-type combo, each with a sample PDF in `files/`
 
 ---
 

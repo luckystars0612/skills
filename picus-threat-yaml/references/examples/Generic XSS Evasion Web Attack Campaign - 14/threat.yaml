@@ -1,0 +1,280 @@
+campaign:
+    name: Generic XSS Evasion Web Attack Campaign - 14
+    description: This campaign includes XSS Evasion vulnerabilities. The purpose of the campaign is to cover XSS Evasion's web attacks.
+    module: Web Application
+    severity: High
+    affected_os:
+        - Windows
+        - Linux
+        - macOS
+    affected_products:
+        - Dynamic Web Applications
+    result_condition:
+        true: unblocked
+        false: blocked
+        condition:
+            Terms:
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-1%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-2%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-3%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-4%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-5%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-6%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-7%'
+                  Operator: eq
+            Operator: or
+    objectives:
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Generic Reflected XSS Onslotchange Bypass Vulnerability Variant-1
+              title: Exploitation
+              description: This attack includes a GET request to Reflected Cross-Site Scripting attack. It could allow an attacker to inject JavaScript into the web application by bypassing filters via onslotchange method
+              comment: verified by evren
+              affected_os:
+                - Windows
+                - Linux
+                - macOS
+              affected_product: Dynamic Web Applications
+              cwe: CWE-79
+              owasp: Injection
+              use_case: WebServer Attack - XSS
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              is_wats_lite: true
+              keyword_queries:
+                - ("page5356229")
+              request_content: files/5990.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Generic Reflected XSS Geolocation Onpromptdismiss Bypass Vulnerability Variant-1
+              title: Exploitation
+              description: This attack includes a GET request to Reflected Cross-Site Scripting attack. It could allow an attacker to inject JavaScript into the web application by bypassing filters via Geolocation Onpromptdismiss method
+              comment: verified by evren
+              affected_os:
+                - Windows
+                - Linux
+                - macOS
+              cwe: CWE-79
+              owasp: Injection
+              use_case: WebServer Attack - XSS
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              is_wats_lite: true
+              keyword_queries:
+                - ("page5326815")
+              request_content: files/5994.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Generic Reflected XSS Geolocation Onpromptaction Bypass Vulnerability Variant-1
+              title: Exploitation
+              description: This attack includes a GET request to Reflected Cross-Site Scripting attack. It could allow an attacker to inject JavaScript into the web application by bypassing filters via Geolocation Onpromptaction method
+              comment: verified by evren
+              affected_os:
+                - Windows
+                - Linux
+                - macOS
+              cwe: CWE-79
+              owasp: Injection
+              use_case: WebServer Attack - XSS
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              is_wats_lite: true
+              keyword_queries:
+                - ("page5357062")
+              request_content: files/5993.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Generic Reflected XSS Geolocation Onlocation Bypass Vulnerability Variant-1
+              title: Exploitation
+              description: This attack includes a GET request to Reflected Cross-Site Scripting attack. It could allow an attacker to inject JavaScript into the web application by bypassing filters via Geolocation Onlocation method. An attacker can use such an XSS attack to send a malicious script to an unsuspecting user. Because the end user's browser thinks the script came from a trusted source, the malicious script can access any cookies, session tokens, or other sensitive information retained by your browser and used with that site.
+              comment: verified by evren
+              affected_os:
+                - Windows
+                - Linux
+                - macOS
+              affected_versions:
+                - N/A
+              cwe: CWE-79
+              owasp: Injection
+              use_case: WebServer Attack - XSS
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              is_wats_lite: true
+              keyword_queries:
+                - ("page5372500")
+              request_content: files/5992.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Generic Reflected XSS Geolocation Onvalidationstatuschange Bypass Vulnerability Variant-1
+              title: Exploitation
+              description: This attack includes a GET request to Reflected Cross-Site Scripting attack. It could allow an attacker to inject JavaScript into the web application by bypassing filters via Geolocation Onvalidationstatuschange method
+              comment: verified by evren
+              affected_os:
+                - Windows
+                - Linux
+                - macOS
+              cwe: CWE-79
+              owasp: Injection
+              use_case: WebServer Attack - XSS
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              is_wats_lite: true
+              keyword_queries:
+                - ("page5315889")
+              request_content: files/5991.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Generic Reflected XSS Shift Constructor Bypass Vulnerability Variant-1
+              title: Exploitation
+              description: This attack includes a GET request to Reflected Cross-Site Scripting attack. It could allow an attacker to inject JavaScript into the web application by bypassing filters via Shift Constructor method
+              comment: verified by evren
+              affected_os:
+                - Windows
+                - Linux
+                - macOS
+              affected_product: Dynamic Web Applications
+              owasp: Injection
+              use_case: WebServer Attack - XSS
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              is_wats_lite: true
+              keyword_queries:
+                - ("page5319642")
+              request_content: files/6040.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Generic HTML Parser Mutation & SelectedContent Context-Based XSS Filter Bypass Vulnerability Variant-1
+              title: Exploitation
+              description: This attack includes a GET request to Reflected Cross-Site Scripting attack. It could allow an attacker to inject JavaScript into the web application by bypassing filters via HTML parser mutation and context switching.
+              comment: verified by evren
+              affected_os:
+                - Windows
+                - Linux
+                - macOS
+              affected_product: Dynamic Web Applications
+              owasp: Injection
+              use_case: WebServer Attack - XSS
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              is_wats_lite: true
+              keyword_queries:
+                - ("page5305570")
+              request_content: files/6076.req

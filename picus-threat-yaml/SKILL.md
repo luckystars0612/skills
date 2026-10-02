@@ -49,21 +49,23 @@ as a shortcut. For every other module, hand-authoring is the only path.
 
 ## Module index — reference docs
 
-The per-module docs are canonical, derived from real Picus threats under
-`~/Desktop/picus-threats/`. **Open the doc that matches the user's chosen module and
-read it before authoring.**
+The per-module docs are canonical, derived from real Picus threats. Worked examples are
+bundled inside this skill under `references/examples/` (copied in — not a symlink or a
+pointer out to a user's home directory — so the skill resolves on any machine it's
+installed on). **Open the doc that matches the user's chosen module and read it before
+authoring.**
 
 | Module | Reference doc | Canonical example threat |
 |---|---|---|
-| `Endpoint Scenario` (Windows) / `Linux Endpoint Scenario` | [endpoint.md](references/modules/endpoint.md) | Linux-sensitive-file canonical examples in [endpoint.md](references/modules/endpoint.md) |
-| `macOS Endpoint Scenario` | [macos-endpoint.md](references/modules/macos-endpoint.md) | [Realst Infostealer Campaign](../../../Desktop/picus-threats/Realst%20Infostealer%20Campaign/threat.yaml) |
-| `Kubernetes Endpoint Scenario` | [kubernetes-endpoint.md](references/modules/kubernetes-endpoint.md) | [Command and Control Kubernetes Micro Emulation Plan](../../../Desktop/picus-threats/Command%20and%20Control%20Kubernetes%20Micro%20Emulation%20Plan/threat.yaml) |
-| `File Download` | [file-download.md](references/modules/file-download.md) | [CRPX0 Ransomware Download Threat](../../../Desktop/picus-threats/CRPX0%20Ransomware%20Download%20Threat/threat.yaml) |
-| `Email` | [email.md](references/modules/email.md) | [ChainDrop Malware Dropper Email Threat](../../../Desktop/picus-threats/ChainDrop%20Malware%20Dropper%20Email%20Threat/threat.yaml) |
-| `Web Application` | [web-application.md](references/modules/web-application.md) | [Generic XSS Evasion Web Attack Campaign - 14](../../../Desktop/picus-threats/Generic%20XSS%20Evasion%20Web%20Attack%20Campaign%20-%2014/threat.yaml) |
-| `Data Exfiltration` | [data-exfiltration.md](references/modules/data-exfiltration.md) | [PDF Format Data Exfiltration Campaign](../../../Desktop/picus-threats/PDF%20Format%20Data%20Exfiltration%20Campaign/threat.yaml) |
-| `URL Filtering` | [url-filtering.md](references/modules/url-filtering.md) | no canonical example under `~/Desktop/picus-threats/` — see doc for template |
-| `Azure / AWS / GCP Cloud Emulation` | [cloud-emulation.md](references/modules/cloud-emulation.md) | no canonical example under `~/Desktop/picus-threats/` — see doc for template |
+| `Endpoint Scenario` (Windows) / `Linux Endpoint Scenario` | [endpoint.md](references/modules/endpoint.md) | Linux-sensitive-file canonical examples inlined in [endpoint.md](references/modules/endpoint.md) |
+| `macOS Endpoint Scenario` | [macos-endpoint.md](references/modules/macos-endpoint.md) | [Realst Infostealer Campaign](references/examples/Realst%20Infostealer%20Campaign/threat.yaml) |
+| `Kubernetes Endpoint Scenario` | [kubernetes-endpoint.md](references/modules/kubernetes-endpoint.md) | [Command and Control Kubernetes Micro Emulation Plan](references/examples/Command%20and%20Control%20Kubernetes%20Micro%20Emulation%20Plan/threat.yaml) |
+| `File Download` | [file-download.md](references/modules/file-download.md) | [CRPX0 Ransomware Download Threat](references/examples/CRPX0%20Ransomware%20Download%20Threat/threat.yaml) |
+| `Email` | [email.md](references/modules/email.md) | [ChainDrop Malware Dropper Email Threat](references/examples/ChainDrop%20Malware%20Dropper%20Email%20Threat/threat.yaml) |
+| `Web Application` | [web-application.md](references/modules/web-application.md) | [Generic XSS Evasion Web Attack Campaign - 14](references/examples/Generic%20XSS%20Evasion%20Web%20Attack%20Campaign%20-%2014/threat.yaml) — see the doc for 5 more real packages (ThinkPHP, Auth Bypass, Java Deserialization, Encoded URI, SharePoint) |
+| `Data Exfiltration` | [data-exfiltration.md](references/modules/data-exfiltration.md) | [PDF Format Data Exfiltration Campaign](references/examples/PDF%20Format%20Data%20Exfiltration%20Campaign/threat.yaml) |
+| `URL Filtering` | [url-filtering.md](references/modules/url-filtering.md) | no canonical example bundled — see doc for template |
+| `Azure / AWS / GCP Cloud Emulation` | [cloud-emulation.md](references/modules/cloud-emulation.md) | no canonical example bundled — see doc for template |
 
 **The skill author itself, not the auto-pipeline, is the source of truth for every
 module above.** The reference docs contain: field inventory with real values, canonical
@@ -127,8 +129,10 @@ Whatever the action needs, drop it in `<threat-name>/files/`. Conventions:
 - **File Download / Email:** malicious binary in `files/`; on-disk filename is
   `files/<base64(MD5)>___<base64(UUID)>.<ext>` to dodge filesystem encoding issues.
 - **Web Application:** HTTP request body in `files/<digits>.req` with the mandatory
-  `/page{PICUSID}/…` placeholder and **no `Host:` header** (the target host/port comes from
-  the Picus assessment config, not the `.req` file).
+  `{PICUSID}` placeholder somewhere in the path (not necessarily its own `/page{PICUSID}/`
+  segment — `/page{PICUSID}.htm` and `/loginpage{PICUSID}.htm` are both confirmed-valid forms,
+  see [web-application.md](references/modules/web-application.md)) and **no `Host:` header**
+  (the target host/port comes from the Picus assessment config, not the `.req` file).
 - **Data Exfiltration:** realistic-looking PDF in `files/<base64(NUMERIC_ID)>___<base64(UUID)>.pdf`.
 - **URL Filtering:** no payload (`.yaml`-only export).
 

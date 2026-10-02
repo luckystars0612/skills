@@ -1,0 +1,6 @@
+GET /page{PICUSID}/_vti_bin/ws.asmx?discooqeteDIokrkuiZ HTTP/1.1
+User-Agent:  iTunes/9.0.3 (Macintosh; U; Intel Mac OS X 10_6_2; en-ca)
+Accept: */*
+UA-CPU: x86
+Authorization: Negotiate POcDUGluExqWCEhEBCNXHqXZUvIoYiBYrBjiQxhiNXFAOYOyeFLznq==
+

