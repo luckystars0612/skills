@@ -1,0 +1,68 @@
+campaign:
+    name: Ai Services - 7
+    description: A curated inventory of publicly accessible AI service endpoints. Use this campaign to validate that your URL filtering controls correctly block unsanctioned AI services in line with your organization's acceptable use policy. Successful connections indicate gaps where shadow AI activity may go undetected.
+    module: URL Filtering
+    severity: High
+    result_condition:
+        true: unblocked
+        false: blocked
+        condition:
+            Terms:
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-1%'
+                  Operator: eq
+                - Right:
+                    Value: unblocked
+                  Left:
+                    Value: '%objective-2%'
+                  Operator: eq
+            Operator: or
+    objectives:
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: https://runpod.io
+              description: RunPod; GPU cloud for AI model hosting and inference
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: URL Filtering
+              is_applicable_to_all_platforms: true
+              filter_url: https://runpod.io
+              url_category: Ai Services - 7
+              keyword_queries:
+                - ("runpod.io")
+        - type: Exfiltration
+          result_condition:
+            true: unblocked
+            false: blocked
+            condition:
+                Terms:
+                    - Right:
+                        Value: unblocked
+                      Left:
+                        Value: '%action-1%'
+                      Operator: eq
+                Operator: or
+          actions:
+            - name: https://api.deepinfra.com
+              description: DeepInfra; inference API for open-source models, developer-only exposure
+              is_atomic: true
+              ukc_phase: Exfiltration
+              category: URL Filtering
+              is_applicable_to_all_platforms: true
+              filter_url: https://api.deepinfra.com
+              url_category: Ai Services - 7
+              keyword_queries:
+                - ("api.deepinfra.com")

@@ -1,5 +1,9 @@
 # Accepted Values Reference
 
+> Verified against the live Picus library on 2026-10-05 (7830 threats / 31180 actions).
+> Counted facts and per-module templates live in
+> [ground-truth-library.md](ground-truth-library.md).
+
 Complete lookup tables for all Picus threat YAML field values.
 
 ---
@@ -29,7 +33,7 @@ one of the categories allowed for that module.
 
 | Module | Valid Categories |
 |---|---|
-| `Endpoint Scenario` | `Attack Scenario`, `Lateral Movement Techniques (Windows)` |
+| `Endpoint Scenario` | `Attack Scenario`, `Lateral Movement Techniques` |
 | `Linux Endpoint Scenario` | `Attack Scenario` |
 | `macOS Endpoint Scenario` | `Attack Scenario` |
 | `Kubernetes Endpoint Scenario` | `Attack Scenario` |
@@ -54,7 +58,7 @@ one of the categories allowed for that module.
 | `TA0002` | Execution |
 | `TA0003` | Persistence |
 | `TA0004` | Privilege Escalation |
-| `TA0005` | Stealth |
+| `TA0005` | Stealth |   <!-- MITRE calls this Defense Evasion; Picus renames it -->
 | `TA0006` | Credential Access |
 | `TA0007` | Discovery |
 | `TA0008` | Lateral Movement |
@@ -64,7 +68,14 @@ one of the categories allowed for that module.
 | `TA0040` | Impact |
 | `TA0042` | Resource Development |
 | `TA0043` | Reconnaissance |
-| `TA0112` | Defense Impairment |
+| `TA0112` | Defense Impairment |   <!-- Picus-specific; not in MITRE ATT&CK Enterprise -->
+
+> **`Stealth` and `Defense Impairment` are tactic names only — they are NOT UKC phases.**
+> Measured over 220 Picus actions, `TA0005` (Stealth) pairs with `ukc_phase: Defense Evasion`
+> in 38/45 cases and with `ukc_phase: Stealth` in **0**; `TA0112` (Defense Impairment) pairs
+> with `Defense Evasion` in 16/16. For every other tactic the `ukc_phase` is the tactic's own
+> name, except that `TA0011` uses the ampersand form `Command & Control`. Picus deviates on a
+> minority of actions, almost always to `Delivery`.
 
 > `technique` and `sub_technique` also use MITRE ATT&CK IDs (e.g., `T1059`, `T1059.001`).
 > Full catalog: https://attack.mitre.org — values must match IDs known to Picus.
@@ -211,13 +222,13 @@ Used in the `url_category` field (URL Filtering module).
 | `Chat` | `News` | `Sports` |
 | `Command & Control` | `Piracy` | `Storage` |
 | `Crypto` | `Redirect` | `Torrent` |
-| `Dating` | | `Tracking` |
-| `Drugs` | | `Travelling` |
-| `Economy` | | `Weapons` |
-| `Education` | | |
-| `Entertainment` | | |
-| `Fraud` | | |
-| `Gambling` | | |
+| `Dating` | `Ai Services - 1` | `Tracking` |
+| `Drugs` | `Ai Services - 2` | `Travelling` |
+| `Economy` | `Ai Services - 3` | `Weapons` |
+| `Education` | `Ai Services - 4` | |
+| `Entertainment` | `Ai Services - 5` | |
+| `Fraud` | `Ai Services - 6` | |
+| `Gambling` | `Ai Services - 7` | |
 | `Games` | | |
 
 ---
@@ -293,6 +304,7 @@ Used in the `use_case` field on actions.
 | Use Case |
 |---|
 | `Known Vulnerability` |
+| `Metasploit` |
 | `Portscan` |
 | `Sensitive Data Exposure` |
 | `Service Exploit` |

@@ -125,14 +125,34 @@ Pick the value(s) that match the malware's delivery vector. ELF droppers typical
 
 ```yaml
 remote_files:
-    - file: files/<base64(MD5)>___<base64(UUID)>.<ext>     # path inside ZIP
+    - file: files/<base64("<MD5>___<uuid>.<ext>")>   # ONE base64 blob — see below
       path: <MD5>.<ext>                                    # on-target filename
       is_downloaded: true
 ```
 
 **Three fields per entry — exactly.** No `is_executable`, no `skip_zip_extract`. Every Email `remote_files` entry has `is_downloaded: true`.
 
-**Filename encoding.** The on-disk filename in `files/` is base64-encoded to dodge filesystem encoding issues. The format is `<base64(MD5)>___<base64(UUID)>.<ext>`. Picus decodes it server-side to recover the original `<MD5>.<ext>` filename that lands on the target.
+**Filename encoding — one base64 blob, not two.** The name inside `files/` is a single
+base64 string of `"<name>___<uuid>.<ext>"`. The `___` separator and the extension live
+*inside* the encoded value; the encoded form never contains `___` and never carries a dot.
+Keep the `=` padding. Verified on 76/76 `remote_files[].file` entries in genuine Picus
+exports.
+
+```python
+import base64, uuid
+plain = f"{md5_or_name}___{uuid.uuid4()}{ext}"      # ext includes the dot
+archive_name = base64.b64encode(plain.encode()).decode()   # keep padding
+```
+
+`scripts/profiles/base.py` exposes this as `picus_archive_name(name, ext)`, and
+`scripts/validate_threat.py` rejects the old two-blob form.
+
+Real entry from the bundled ChainDrop example:
+
+```
+files/ZjkyZWU5M2EwYWY5NzFhMzk2NmJmYThlZmE5YzI2MjVfX19iZTJiMTM3Yy1iMjI1LTRiMzktOTk0OC1lZTU2MzNkMDBlNzYuanM=
+  decodes to  f92ee93a0af971a3966bfa8efa9c2625___be2b137c-b225-4b39-9948-ee5633d00e76.js
+```
 
 Example (real ChainDrop payload):
 

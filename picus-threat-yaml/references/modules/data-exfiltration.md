@@ -161,12 +161,36 @@ The canonical PDF campaign uses the verbose forms `PCI (Payment Card Industry)`,
 
 ```yaml
 remote_files:
-    - file: files/<base64(NUMERIC_ID)>___<base64(UUID)>.pdf
+    - file: files/<base64("<NUMERIC_ID>___<uuid>.pdf")>   # ONE base64 blob
       path: <NUMERIC_ID>.pdf
       is_downloaded: true
 ```
 
-**Two fields per entry — exactly.** No `is_executable`, no `skip_zip_extract`. Every Data Exfiltration `remote_files` entry has `is_downloaded: true`.
+**Three fields per entry — exactly** (`file`, `path`, `is_downloaded`). No `is_executable`,
+no `skip_zip_extract`. Every Data Exfiltration `remote_files` entry has `is_downloaded: true`,
+and it sits at **action level** (22/22 real actions), never inside a process.
+
+**Filename encoding — one base64 blob, not two.** The name inside `files/` is a single
+base64 string of `"<name>___<uuid>.<ext>"`. The `___` separator and the extension live
+*inside* the encoded value; the encoded form never contains `___` and never carries a dot.
+Keep the `=` padding. Verified on 76/76 `remote_files[].file` entries in genuine Picus
+exports.
+
+```python
+import base64, uuid
+plain = f"{md5_or_name}___{uuid.uuid4()}{ext}"      # ext includes the dot
+archive_name = base64.b64encode(plain.encode()).decode()   # keep padding
+```
+
+`scripts/profiles/base.py` exposes this as `picus_archive_name(name, ext)`, and
+`scripts/validate_threat.py` rejects the old two-blob form.
+
+Real entry from the bundled PDF example:
+
+```
+files/MjI3NDQ4X19fMzZkNWQ1MzctYzc5NC00ZDgzLTg4NDMtNGVmNzJkNDhlODAzLnBkZg==
+  decodes to  227448___36d5d537-c794-4d83-8843-4ef72d48e803.pdf
+```
 
 **Filename encoding.** Same base64 convention as File Download / Email. On-disk filename in `files/` is base64-encoded; `path:` is the plain numeric ID + `.pdf` extension. Picus decodes server-side.
 

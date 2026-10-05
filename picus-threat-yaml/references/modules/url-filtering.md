@@ -14,7 +14,7 @@
 |---|---|---|
 | `module` | `URL Filtering` (literal) | campaign-level |
 | `severity` | `High` | only severity seen |
-| `affected_os` | `[Windows]` or `[Linux, macOS]` | per action |
+| `affected_os` | usually **absent** | only 26/1016 real URL Filtering actions set it |
 | `is_atomic` | `true` | always |
 | `ukc_phase` | `Command & Control`, `Exfiltration` | varies |
 | `category` | `URL Filtering` | always literal |
@@ -65,7 +65,7 @@ campaign:
 | `title` | string | yes | `URL Visit` |
 | `description` | string | yes | short description |
 | `comment` | string | optional | `auto-migrated` |
-| `affected_os` | list | yes | per-action OS list |
+| `affected_os` | list | **no** | omitted on 990/1016 Picus actions — leave it out |
 | `is_atomic` | bool | yes | `true` |
 | `ukc_phase` | string | yes | `Command & Control` / `Exfiltration` |
 | `category` | string | yes | `URL Filtering` |

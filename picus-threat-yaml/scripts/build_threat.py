@@ -76,6 +76,8 @@ def _load_actions(path: Path, profile: Profile) -> list[ActionSpec]:
         spec.dropper_sha256 = item.get("dropper_sha256", "")
         spec.dropper_sha1 = item.get("dropper_sha1", "")
         spec.dropper_md5 = item.get("dropper_md5", "")
+        spec.archive_name = item.get("archive_name", "")
+        spec.drop_path = item.get("drop_path", "")
         # Binary dictionary for keyword_queries.
         bins = item.get("binaries")
         if bins:

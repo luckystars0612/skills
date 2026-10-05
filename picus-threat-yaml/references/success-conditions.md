@@ -115,6 +115,11 @@ action grades as `unblocked`.
 - `delay: 0` — the default. Always omit.
 - `is_async: false` — the default. Always omit.
 - `comment:` — not part of the schema. Always omit.
-- `success_conditions: []` — always emit at least one condition.
+- `success_conditions:` — **do not force one.** Measured over 635 `play_processes` in 78
+  exported Picus threats, **465 (73%) carry no `success_conditions` at all.** Emit one only
+  when there is a substring you can actually predict; a blank `output: " "` is never used by
+  Picus and makes the check unconditional. When stdout is unpredictable, either omit the key
+  or use Picus's inverse forms: `{code: N, is_inverse: true}` (43 cases) or
+  `{output: "<failure marker>", is_inverse: true}` (8 cases).
 
 The broken sample sets all of these explicitly. The skill omits them.

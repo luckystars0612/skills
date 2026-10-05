@@ -20,7 +20,7 @@ based on the target file. The catalog mirrors what the working samples use.
 | `authorized_keys` | `ssh-` | Each line starts with `ssh-rsa `, `ssh-ed25519 `, etc. |
 | `id_rsa`, `id_ed25519` | `PRIVATE KEY` | PEM header `-----BEGIN ... PRIVATE KEY-----` |
 | `\.ssh/` | `id_` | Directory listing contains `id_rsa`, `id_ed25519`, etc. |
-| `.bash_history` | ` ` (single space) | Any non-empty line — fall back to a single space as the wildcard |
+| `.bash_history` | *omit `success_conditions`* | Content is arbitrary user commands — nothing predictable to match. See the note below. |
 | `.bashrc` | `export` | Most .bashrc files contain `export PATH=` or `export ` at least once |
 | `/etc/crontab` | `SHELL=` | System crontab starts with `SHELL=/bin/bash` |
 | `/var/spool/cron/` | `SHELL=` | spool files contain the user's preferred shell path |
@@ -36,7 +36,7 @@ When the target is unknown, use:
 
 ```yaml
 success_conditions:
-  - output: " "          # single space — matches any non-empty stdout
+  # Content is unpredictable: omit success_conditions rather than inventing a match.
 ```
 
 This is the weakest assertion — it only proves the process produced output —
@@ -64,3 +64,21 @@ blocked at the network level (connection timeout). The `output:` substring check
 is content-aware: the agent must have actually emitted the expected bytes for the
 action to count as "unblocked". PUMAKIT and Kubernetes C2 use this style and
 their actions are correctly graded by the Picus validator.
+
+---
+
+> **A single space is not a wildcard.** Measured over 635 `play_processes` in 78 exported
+> Picus threats, **zero** `success_conditions.output` values are blank or whitespace-only.
+> `output: " "` requires a literal space in stdout and makes the check effectively
+> unconditional, so the action reports success even when the attack did nothing.
+> `validate_threat.py` rejects it.
+>
+> When stdout genuinely cannot be predicted, do what Picus does:
+>
+> | Picus idiom | Cases | Meaning |
+> |---|---:|---|
+> | omit `success_conditions` entirely | 465/635 | no output check on this process |
+> | `{code: N, is_inverse: true}` | 43 | succeeded **unless** the exit code is N — e.g. `{code: 2, is_inverse: true}` |
+> | `{output: "<failure marker>", is_inverse: true}` | 8 | succeeded **unless** that string appears — e.g. `FullyQualifiedErrorId :`, `permissiondenied` |
+> | `{code: N}` | 4 | expect a specific exit code |
+> | `{code: N, output: "..."}` | 2 | both, e.g. `{code: 1, output: "No Instance"}` |

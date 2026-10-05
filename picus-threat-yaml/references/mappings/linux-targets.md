@@ -38,7 +38,7 @@ Each row has these fields:
 | `id_rsa` | `$HOME/.ssh/id_rsa` | Read SSH private key | TA0006 | T1552 | T1552.004 | Credential Access | false | `PRIVATE KEY` |
 | `id_ed25519` | `$HOME/.ssh/id_ed25519` | Read SSH private key | TA0006 | T1552 | T1552.004 | Credential Access | false | `PRIVATE KEY` |
 | `\.ssh/` | `$HOME/.ssh/` | List SSH directory | TA0007 | T1083 | — | Discovery | false | `id_` |
-| `.bash_history` | `$HOME/.bash_history` | Read bash history | TA0006 | T1552 | T1552.003 | Credential Access | false | ` ` |
+| `.bash_history` | `$HOME/.bash_history` | Read bash history | TA0006 | T1552 | T1552.003 | Credential Access | false | *(none — omit)* |
 | `.bashrc` | `$HOME/.bashrc` | Read .bashrc | TA0003 | T1546 | T1546.004 | Persistence | false | `export` |
 | `/etc/crontab` | `/etc/crontab` | Read /etc/crontab | TA0003 | T1053 | T1053.003 | Persistence | true | `SHELL=` |
 | `/var/spool/cron/` | `/var/spool/cron/` | List cron spool | TA0003 | T1053 | T1053.003 | Persistence | true | `SHELL=` |
@@ -58,7 +58,7 @@ technique: T1083
 sub_technique: ""
 ukc_phase: Discovery
 is_privileged: false
-expected_output: " "              # any non-empty stdout
+expected_output: ""               # unpredictable content -> emit NO success_conditions
 ```
 
 The skill emits a warning when the fallback is used so the user can extend the table.

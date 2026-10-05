@@ -78,9 +78,9 @@ Each item in `success_conditions`:
       timeout: 60
       delay: 0
       is_async: false
-      remote_files:
-        - file: files/mimikatz.exe
-          path: C:\Temp\mimikatz.exe
+      remote_files:                      # nested in the PROCESS, not the action
+        - file: files/bWltaWthdHpfX18xZDZkNzQ5OS05MjczLTQwZmUtODJhNy1hN2FhMWIyZDQzMTQuZXhl
+          path: C:\Temp\mimikatz.exe       # ^ base64("mimikatz___<uuid>.exe")
           is_executable: true
           is_downloaded: true
       success_conditions:
@@ -105,7 +105,7 @@ Each item in `success_conditions`:
   needs_creds: true
   is_privileged: true
   ukc_phase: Lateral Movement
-  category: Lateral Movement Techniques (Windows)
+  category: Lateral Movement Techniques
   tactic: TA0008
   technique: T1021
   affected_os:

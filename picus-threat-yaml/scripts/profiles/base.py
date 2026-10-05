@@ -67,6 +67,25 @@ class TargetRow:
 # Mirrors the dataclass in the original build_threat.py so existing parsers
 # import without changes.
 # ---------------------------------------------------------------------------
+def picus_archive_name(plain_name: str, ext: str = "") -> str:
+    """Return the on-disk filename Picus expects inside the ZIP.
+
+    Picus stores a payload as a SINGLE base64 blob of `<name>___<uuid><ext>`.
+    The `___` separator and the extension live INSIDE the encoded string; the
+    encoded form never contains `___` and never carries a dot. Padding is kept.
+
+        >>> picus_archive_name("dummy", ".exe")   # doctest: +SKIP
+        'ZHVtbXlfX18xZDZkNzQ5OS05MjczLTQwZmUtODJhNy1hN2FhMWIyZDQzMTQuZXhl'
+
+    Verified against 76/76 `remote_files[].file` entries in genuine Picus
+    threat exports.
+    """
+    import base64 as _b64
+    import uuid as _uuid
+    plain = f"{plain_name}___{_uuid.uuid4()}{ext}"
+    return _b64.b64encode(plain.encode("utf-8")).decode("ascii")
+
+
 @dataclass
 class ActionSpec:
     name: str
@@ -89,6 +108,12 @@ class ActionSpec:
     dropper_sha256: str = ""
     dropper_sha1: str = ""
     dropper_md5: str = ""
+    # On-disk name inside the ZIP: base64("<name>___<uuid>.<ext>"), padding kept.
+    # This is what `remote_files[].file` must reference. Verified 76/76 against
+    # genuine Picus exports.
+    archive_name: str = ""
+    # Where the dropper lands on the simulated target, and what executes it.
+    drop_path: str = ""
     # Binary dictionary for keyword_queries — sourced from the rule's
     # a0=... / Image|endswith=... / etc. Defaults to profile.default_binaries.
     binaries: tuple[str, ...] = ()
@@ -172,6 +197,11 @@ class Profile(ABC):
             spec.play_arguments = row.play_arguments
         return spec
 
+    # Join operator for the campaign/objective result_condition. "and" for all
+    # Endpoint modules (verified: BlackMatter Windows, PUMAKIT Linux, Realst macOS);
+    # Kubernetes and every non-Endpoint module use "or".
+    campaign_join: str = "and"
+
     def render_objective(self, ukc_phase: str, actions: list[ActionSpec],
                          hashes_by_name: dict[str, dict[str, str]]) -> str:
         """Render one objective (one UKC phase).
@@ -192,7 +222,7 @@ class Profile(ABC):
             lines.append(f"                - Right: {{Value: unblocked}}")
             lines.append(f"                  Left: {{Value: '%action-{i + 1}%'}}")
             lines.append(f"                  Operator: eq")
-        lines.append(f"              Operator: and")
+        lines.append(f"              Operator: {self.campaign_join}")
         lines.append(f"          actions:")
         for spec in actions:
             lines.append(self.render_action(spec, hashes_by_name[spec.name], 0))
@@ -215,31 +245,22 @@ class Profile(ABC):
         total_objectives = len(groups_list)
 
         # Campaign-level result_condition.
-        if total_objectives == 1:
-            campaign_rc = [
-                "    result_condition:",
-                "        true: unblocked",
-                "        false: blocked",
-                "        condition:",
-                "            Right:",
-                "                Value: unblocked",
-                "            Left:",
-                "                Value: '%objective-1%'",
-                "            Operator: eq",
-            ]
-        else:
-            campaign_rc = [
-                "    result_condition:",
-                "        true: unblocked",
-                "        false: blocked",
-                "        condition:",
-                "            Terms:",
-            ]
-            for i in range(total_objectives):
-                campaign_rc.append(f"                - Right: {{Value: unblocked}}")
-                campaign_rc.append(f"                  Left: {{Value: '%objective-{i + 1}%'}}")
-                campaign_rc.append(f"                  Operator: eq")
-            campaign_rc.append("            Operator: and")
+        # Picus ALWAYS wraps the terms in `Terms:` + a join `Operator:`, even when
+        # there is exactly one objective — verified on three single-objective Picus
+        # threats (Linux Obfuscated Script Execution, ChainDrop x2). Emitting a bare
+        # term instead produces a result_condition Picus cannot evaluate.
+        campaign_rc = [
+            "    result_condition:",
+            "        true: unblocked",
+            "        false: blocked",
+            "        condition:",
+            "            Terms:",
+        ]
+        for i in range(total_objectives):
+            campaign_rc.append(f"                - Right: {{Value: unblocked}}")
+            campaign_rc.append(f"                  Left: {{Value: '%objective-{i + 1}%'}}")
+            campaign_rc.append(f"                  Operator: eq")
+        campaign_rc.append(f"            Operator: {self.campaign_join}")
 
         # Render objectives.
         obj_blocks: list[str] = []

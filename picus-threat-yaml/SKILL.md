@@ -38,12 +38,49 @@ When the user asks for a threat:
 3. **Hand-author `threat.yaml`** using the module's invariants, field inventory, and
    keyword-queries template.
 4. **Build the payload** (binary, PDF, `.req`, sample data) and drop it in `files/`.
-5. **Validate** — see [Validation Checklist](#validation-checklist) at the bottom.
-6. **Package** — AES-256-encrypted ZIP with password `picus`.
+5. **Validate** — run the checker, do not eyeball it:
+
+   ```bash
+   python3 ~/.claude/skills/picus-threat-yaml/scripts/validate_threat.py <campaign-dir>
+   ```
+
+   It enforces every rule measured from the live library (categories per module, UKC
+   phases, MITRE tactic ids, platform pairs, `remote_files` placement, payload filename
+   encoding, result-condition references, per-module `AND NOT` policy) and checks
+   `malware_family` / `threat_actor` / `url_category` / `use_case` / `owasp` against
+   Picus's real vocabularies. Exit code 0 means no errors. All 32 genuine Picus and
+   local threats pass with zero errors; a deliberately broken threat trips 18 checks.
+6. **Package** — AES-256-encrypted ZIP with password `picus`, then validate the archive
+   itself: `validate_threat.py my_threat.zip`.
 
 If the input is a Splunk SPL / Sigma rule / plain-text goal AND the module is
 **Linux Endpoint** or **Windows Endpoint**, you can use the [auto-pipeline](#auto-pipeline-linux--windows-endpoint-only)
 as a shortcut. For every other module, hand-authoring is the only path.
+
+---
+
+## Ground truth first
+
+[**ground-truth-library.md**](references/ground-truth-library.md) holds counted facts from the
+live library — all 7830 Picus-authored threats and all 31180 of their actions, measured
+2026-10-05: value vocabularies, per-module `keyword_queries` templates with real frequencies,
+which modules use an `AND NOT` filter, campaign shape norms, and the fields Picus sets that the
+rest of this skill omits. **When this skill and that file disagree, that file wins.**
+
+Alongside it:
+
+| Reference | Contents |
+|---|---|
+| [detection.md](references/detection.md) | what "detection" means in Picus, how `keyword_queries` drives it, and the 5858-rule Detection Content catalog |
+| [vocab-threat-actors.md](references/vocab-threat-actors.md) | all 206 `threat_actor` values **with aliases** |
+| [vocab-malware-families.md](references/vocab-malware-families.md) | all 2233 `malware_family` values |
+| [vocab-platforms.md](references/vocab-platforms.md) | all 92 `affected_platforms` name/architecture pairs |
+| [vocab-file-types.md](references/vocab-file-types.md) | the 131 recognised payload extensions |
+| [vocab-tags.md](references/vocab-tags.md) | the 258 `tags` values |
+| [vocab-action-titles.md](references/vocab-action-titles.md) | the 52 title verbs Picus's own UI offers |
+
+`scripts/vocab.json` holds the same vocabularies machine-readably; `validate_threat.py`
+reads it, so a rejected value always names the reference file to look in.
 
 ---
 
@@ -64,7 +101,7 @@ authoring.**
 | `Email` | [email.md](references/modules/email.md) | [ChainDrop Malware Dropper Email Threat](references/examples/ChainDrop%20Malware%20Dropper%20Email%20Threat/threat.yaml) |
 | `Web Application` | [web-application.md](references/modules/web-application.md) | [Generic XSS Evasion Web Attack Campaign - 14](references/examples/Generic%20XSS%20Evasion%20Web%20Attack%20Campaign%20-%2014/threat.yaml) — see the doc for 5 more real packages (ThinkPHP, Auth Bypass, Java Deserialization, Encoded URI, SharePoint) |
 | `Data Exfiltration` | [data-exfiltration.md](references/modules/data-exfiltration.md) | [PDF Format Data Exfiltration Campaign](references/examples/PDF%20Format%20Data%20Exfiltration%20Campaign/threat.yaml) |
-| `URL Filtering` | [url-filtering.md](references/modules/url-filtering.md) | no canonical example bundled — see doc for template |
+| `URL Filtering` | [url-filtering.md](references/modules/url-filtering.md) | [Ai Services - 7](references/examples/Ai%20Services%20-%207/threat.yaml) — exported from the live library; `.yaml` only, no `files/` |
 | `Azure / AWS / GCP Cloud Emulation` | [cloud-emulation.md](references/modules/cloud-emulation.md) | no canonical example bundled — see doc for template |
 
 **The skill author itself, not the auto-pipeline, is the source of truth for every
@@ -123,17 +160,36 @@ The agent is responsible for:
 
 ### Step 3 — Build the payload files
 
-Whatever the action needs, drop it in `<threat-name>/files/`. Conventions:
+Whatever the action needs, drop it in `<threat-name>/files/`.
+
+> **The on-disk name is one base64 blob.** Picus stores a payload as
+> `files/<base64("<name>___<uuid>.<ext>")>` — the `___` separator and the extension live
+> *inside* the encoded string, and the `=` padding is kept. The encoded form never
+> contains `___` and never carries a dot. Verified on 76/76 `remote_files[].file`
+> entries in genuine Picus exports.
+>
+> ```python
+> import base64, uuid
+> plain = f"{md5_or_name}___{uuid.uuid4()}{ext}"   # ext includes the dot, or ""
+> archive_name = base64.b64encode(plain.encode()).decode()   # keep the padding
+> ```
+>
+> `scripts/profiles/base.py` exposes this as `picus_archive_name(name, ext)`.
+
+Conventions:
 
 - **Endpoint (Linux/Windows/macOS/K8s):** dropper shell script or compiled binary.
-- **File Download / Email:** malicious binary in `files/`; on-disk filename is
-  `files/<base64(MD5)>___<base64(UUID)>.<ext>` to dodge filesystem encoding issues.
+- **File Download / Email:** malicious binary in `files/`; the on-disk filename is a
+  **single base64 blob** — `files/<base64("<md5>___<uuid>.<ext>")>`. The `___` and the
+  extension are *inside* the encoded string. Verified 76/76 in real Picus exports.
+  Keep the `=` padding. **Not** `<base64(MD5)>___<base64(UUID)>.<ext>`.
 - **Web Application:** HTTP request body in `files/<digits>.req` with the mandatory
   `{PICUSID}` placeholder somewhere in the path (not necessarily its own `/page{PICUSID}/`
   segment — `/page{PICUSID}.htm` and `/loginpage{PICUSID}.htm` are both confirmed-valid forms,
   see [web-application.md](references/modules/web-application.md)) and **no `Host:` header**
   (the target host/port comes from the Picus assessment config, not the `.req` file).
-- **Data Exfiltration:** realistic-looking PDF in `files/<base64(NUMERIC_ID)>___<base64(UUID)>.pdf`.
+- **Data Exfiltration:** realistic-looking PDF/XLSX in `files/<base64("<id>___<uuid>.<ext>")>`
+  — one base64 blob, same rule as above.
 - **URL Filtering:** no payload (`.yaml`-only export).
 
 ### Step 4 — Validate
@@ -197,8 +253,10 @@ scripts/detect_format.py        →  format = spl | sigma | goal
 scripts/parse_<format>.py       →  list[ActionSpec] (JSON on stdout)
   │
   ▼
-scripts/build_dropper.py        →  writes files/<name>.sh + computes
-                                       SHA-256, SHA-1, MD5 of each dropper
+scripts/build_dropper.py        →  writes files/<base64 blob> + computes
+                                       SHA-256/SHA-1/MD5 and returns
+                                       archive_name + drop_path so build_threat
+                                       wires remote_files into the process
   │
   ▼
 scripts/build_threat.py         →  writes <campaign>/threat.yaml
@@ -234,6 +292,8 @@ for a in actions:
     a["dropper_sha256"] = d["sha256"]
     a["dropper_sha1"]   = d["sha1"]
     a["dropper_md5"]    = d["md5"]
+    a["archive_name"]   = d["archive_name"]   # base64 name inside the ZIP
+    a["drop_path"]      = d["drop_path"]      # where it lands on the target
 json.dump(actions, open("/tmp/actions-with-hashes.json", "w"), indent=2)
 '
 
@@ -248,6 +308,8 @@ python3 ~/.claude/skills/picus-threat-yaml/scripts/build_threat.py \
 python3 ~/.claude/skills/picus-threat-yaml/scripts/package.py \
   --campaign $OUT \
   --output /tmp/$CAMPAIGN.zip
+
+python3 ~/.claude/skills/picus-threat-yaml/scripts/validate_threat.py $OUT || exit 1
 
 echo "Ready to import: /tmp/$CAMPAIGN.zip"
 ```
@@ -304,11 +366,20 @@ campaign:
   comment:            # optional internal note, max 255 chars
   result_condition:   # see Result Conditions
   objectives:         # REQUIRED — at least one
-    - type:           # free text or umbrella category (K8s)
+    - type:           # NOT free text — one of the 16 values Picus uses:
+                      #   Delivery | Exploitation | Initial Access | Exfiltration |
+                      #   Defense Evasion | Discovery | Execution | Credential Access |
+                      #   Persistence | Collection | Command and Control | Impact |
+                      #   Privilege Escalation | Lateral Movement | Reconnaissance | Network
+                      # Note: "Command and Control" here, vs "Command & Control" for ukc_phase.
       result_condition:
       actions:        # REQUIRED — at least one per objective
         - name:
-          title:              # module-specific (omit on macOS Endpoint)
+          title:              # Picus OMITS it on Endpoint Scenario (0/218), Linux Endpoint
+                              #   (4/104) and macOS Endpoint (0/12). ALWAYS sets it on
+                              #   Kubernetes (174/174), Email (175/175), File Download (77/77),
+                              #   Data Exfiltration (174/174), Web Application (48/49).
+                              #   URL Filtering: absent in the one sampled threat — unconfirmed.
           description:
           category:           # must match valid category for the module
           tactic:             # MITRE ATT&CK tactic ID (TAxxxx) — Endpoint modules
@@ -316,13 +387,18 @@ campaign:
           sub_technique:      # optional MITRE sub-technique ID
           ukc_phase:          # see UKC Phases list
           is_atomic:
+          is_applicable_to_all_platforms:   # set on EVERY Picus action, every module
           affected_os:
-          keyword_queries: []
+          keyword_queries: []               # list of PLAIN STRINGS in YAML (249/249 real actions)
           result_condition:
           # --- Module-specific fields ---
-          remote_files: []        # File Download, Email, Data Exfil
-          play_processes: []      # Endpoint modules only
+          remote_files: []        # File Download, Email, Data Exfil (action level)
+          play_processes: []      # Endpoint modules only — see shape below
           rewind_processes: []    # Endpoint modules only
+          #   each play_processes / rewind_processes entry accepts:
+          #     path, arguments, timeout, delay, is_async,
+          #     remote_files[], success_conditions[]
+          #   `path` is often OMITTED on Linux/Kubernetes — whole command in `arguments`
           steps: []               # Cloud modules only
           rewind_steps: []        # Cloud modules only
           execution_methods: []   # Email only
@@ -331,6 +407,16 @@ campaign:
           url_category:           # URL Filtering only
           country:                # Data Exfiltration only
           data_type:              # Data Exfiltration only
+          malware_family:         # Email, File Download (2233 valid values)
+          use_case:               # Web Application only (27 valid values)
+          affected_product:       # Web Application only (singular; action-level)
+          affected_versions:      # Web Application only
+          cve:                    # Web Application (e.g. CVE-2026-72898)
+          cwe:                    # Web Application (lowercase prefix, e.g. cwe-89)
+          owasp:                  # Web Application (98% of Picus Web App actions set it)
+          is_wats_lite:           # Web Application only
+          is_privileged:          # all Endpoint modules (Windows 16/24, Linux 14/25, macOS 4/12, K8s 1/17)
+          comment:                # action-level note (Data Exfiltration, Web Application)
 ```
 
 ### Result conditions
@@ -370,30 +456,55 @@ result_condition:
 
 **Join operator per module:**
 
-| Module | Campaign-level join | Action-level join |
-|---|---|---|
-| Endpoint Scenario (Windows) | `and` | `and` |
-| Linux Endpoint Scenario | `and` | `and` |
-| macOS Endpoint Scenario | `and` | `and` |
-| Kubernetes Endpoint Scenario | **`or`** | `and` |
-| File Download | `or` | (no action-level) |
-| Email | `or` | (no action-level) |
-| Web Application | `or` | (no action-level) |
-| Data Exfiltration | `or` | (no action-level) |
-| URL Filtering | `or` | (no action-level) |
+The **objective-level** operator mirrors the campaign operator in every verified export, and
+the campaign `Terms` count always equals the objective count.
+
+| Module | Campaign-level join | Objective-level join | Action-level join |
+|---|---|---|---|
+| Endpoint Scenario (Windows) | `and` | `and` | `and` |
+| Linux Endpoint Scenario | `and` | `and` | `and` |
+| macOS Endpoint Scenario | `and` | `and` | `and` |
+| Kubernetes Endpoint Scenario | **`or`** | `or` | `and` |
+| File Download | `or` | `or` | (no action-level) |
+| Email | `or` | `or` | (no action-level) |
+| Web Application | `or` | `or` | (no action-level) |
+| Data Exfiltration | `or` ¹ | `or` | (no action-level) |
+| URL Filtering | `or` | `or` | (no action-level) |
+
+¹ Data Exfiltration is the one module where Picus uses both: `or` on a 21-objective threat,
+`and` on a 1-objective threat. With a single term `and` and `or` are logically identical, so
+`or` is the safe default. The objective-level operator matched the campaign operator in 21 of
+22 sampled threats — that same single-objective Data Exfiltration threat is the exception
+(campaign `and`, objective `or`).
 
 ### `remote_files`
 
-Used in File Download, Email, Data Exfiltration, and Endpoint modules for dropper
-payloads.
+**Placement depends on the module** — verified over 170 actions in 29 genuine Picus threats:
+
+| Module | `remote_files` lives on | Evidence |
+|---|---|---|
+| File Download, Email, Data Exfiltration | the **action** | 41/41 actions |
+| Endpoint, Linux, macOS, Kubernetes Endpoint | each **`play_processes` entry** | 51 processes; **0** at action level |
 
 ```yaml
+# File Download / Email / Data Exfiltration — action level
 remote_files:
-  - file: files/payload.exe      # path inside ZIP — MUST exist
+  - file: files/<base64 blob>    # path inside ZIP — MUST exist
     path: C:\Temp\payload.exe    # destination on simulated target
-    is_executable: true
     is_downloaded: true
-    skip_zip_extract: false      # set true if file is itself a zip
+
+# Endpoint modules — nested under the process that uses it
+play_processes:
+  - path: reg.exe
+    arguments: add "HKCU\...\RunOnce" /v "*x" /d "%TMP%\dummy.exe" /f
+    timeout: 15                  # process-level, undocumented until now
+    remote_files:
+      - file: files/<base64 blob>
+        path: '%TMP%\dummy.exe'
+        is_downloaded: true
+        is_executable: true
+    success_conditions:          # process-level, not action-level
+      - output: The operation completed successfully.
 ```
 
 | Field | Required | Description |
@@ -411,7 +522,7 @@ remote_files:
 
 | Module | Valid categories |
 |---|---|
-| Endpoint Scenario | `Attack Scenario`, `Lateral Movement Techniques (Windows)` |
+| Endpoint Scenario | `Attack Scenario`, `Lateral Movement Techniques` |
 | Linux / macOS / Kubernetes Endpoint | `Attack Scenario` |
 | Email | `Malicious Code`, `Vulnerability Exploitation` |
 | File Download | `Malicious Code`, `Vulnerability Exploitation` |
@@ -442,24 +553,91 @@ remote_files:
 
 Collection · Command & Control · Credential Access · Defense Evasion · Delivery ·
 Discovery · Execution · Exfiltration · Exploitation · Impact · Lateral Movement ·
-Persistence · Privilege Escalation · Reconnaissance · Social Engineering · Weaponization
+**Objectives** · Persistence · **Pivoting** · Privilege Escalation · Reconnaissance ·
+Social Engineering · Weaponization
+
+All 18 are valid. Only 14 are ever used by a Picus-authored action — `Weaponization`,
+`Social Engineering`, `Pivoting` and `Objectives` are unused in the library. Each phase also
+has a fixed UKC `stage` (`Initial Foothold` / `Network Propagation` / `Action on Objectives`);
+see [ground-truth-library.md](references/ground-truth-library.md).
+
+---
+
+## Detection — what it is and where it lives
+
+A Picus simulation produces **two** verdicts per action:
+
+| Verdict | Means | Driven by |
+|---|---|---|
+| **Prevention** | `blocked` / `unblocked` — did a control stop the attack? | the attack itself (`play_processes`, `remote_files`, `request_content`, `filter_url`) |
+| **Detection** | `logged` / `not logged`, `alerted` / `not alerted` — did the SIEM/EDR see it? | **`keyword_queries`** |
+
+**There is no `detection:` block in `threat.yaml`.** Verified by scanning 29 genuine Picus
+threats (12 fresh API exports + 13 bundled examples + local copies) for any
+`detection` / `sigma` / `rule` / `siem` / `alert` key — none exists. `keyword_queries` *is* the
+detection half of a threat: Picus runs that boolean expression against the logs pulled from
+each SIEM/EDR integration, and an action counts as detected when the query matches.
+
+So authoring detection = authoring `keyword_queries` correctly. Get the per-module template and
+the `AND NOT` rules from [ground-truth-library.md](references/ground-truth-library.md); they are
+measured over all 31180 Picus actions. Key points:
+
+- In **YAML** a `keyword_queries` entry is a **plain string** — verified on 249/249 actions in
+  real Picus threats. The `{id, query, type: Default}` object is only how the **API** returns it;
+  never write a `type:` key into `threat.yaml`.
+- One query per action (99.98% of the library).
+- The query must contain something **uniquely attributable to this action** — a file hash, the
+  `{PICUSID}` marker, a sandbox-unique argument — or every simulation will look detected.
+- `AND NOT (…)` exists to suppress Picus's **own** cleanup noise (`PICUS_REWIND`, `rm -rf`,
+  `pkill`). Add it only for Endpoint modules and Data Exfiltration.
+
+### Detection Content (the platform feature) is a different API
+
+Picus also ships vendor-specific SIEM rules — "Detection Content" — recommended for actions that
+were not detected. That is **not** part of a threat archive. It lives behind:
+
+```
+GET  /v1/mitigation/detection-content/sources          # Splunk, QRadar, Sentinel, ...
+GET  /v1/mitigation/detection-content/{source}/rules
+GET  /v1/mitigation/detection-content/{source}/rules/{ruleId}
+GET  /v1/mitigation/detection-content/custom           # your own content
+POST /v1/mitigation/detection-content/custom
+GET  /v1/mitigation/detection-content/mitre/{tactics|techniques|sub-techniques}
+GET  /v1/mitigation/detection-content/devices
+```
+
+Every one of those needs a **Mitigation** token scope. With a Threat-Library-only scope they all
+return `403 {"message":"token scope not permitted"}` — confirmed on this deployment 2026-10-05.
+There is also `POST /v1/threat-library/actions/custom-keyword`, which asks Picus to *generate*
+the detection keyword for a custom action from its hashes / filename / process ids — useful when
+hand-writing `keyword_queries` for a new action.
 
 ---
 
 ## Validation Checklist
 
-Before handing off the `threat.yaml` to the user, verify:
+**Run `scripts/validate_threat.py` first** — it mechanically enforces everything below
+that can be checked, against vocabularies measured from the live library. This list is
+what it checks, plus the few judgement calls it cannot make:
 
 - [ ] `name` is unique (no duplicates in their account)
 - [ ] `module` matches one of the valid module strings exactly
 - [ ] `category` on each action is valid for the chosen module (see table above)
 - [ ] `affected_os` values are from the accepted OS list
 - [ ] Each `remote_files[].file` path matches a real file in `files/`
+- [ ] `remote_files` is at the **right level**: action for File Download / Email / Data Exfiltration,
+      inside `play_processes` for the Endpoint modules
+- [ ] On-disk payload name is ONE base64 blob of `<name>___<uuid>.<ext>`, padding kept
+- [ ] `success_conditions` sits on the **process**, not the action
+- [ ] `title` omitted for macOS Endpoint and URL Filtering, present elsewhere
 - [ ] Each `request_content` path matches a real `.req` file in `files/` (Web Application)
 - [ ] Result-condition references (`%action-1%`, `%objective-N%`, `%process-N%`) don't exceed the actual item count
 - [ ] Result-condition join operator matches the module table above
 - [ ] `keyword_queries` follows the canonical template for the module
-- [ ] Module-specific AND-NOT noise filter is present and correct for the module
+- [ ] `AND NOT` noise filter present **only** for Endpoint modules and Data Exfiltration —
+      Picus uses none at all for File Download, Email, Web Application, URL Filtering, AWS or GCP
+- [ ] `keyword_queries` entries are plain strings (no `query:` / `type:` keys — that is the API shape)
+- [ ] `is_applicable_to_all_platforms` is set on every action
 - [ ] Endpoint actions have at least one `play_processes` entry with a `path` or `arguments`
 - [ ] File Download / Email actions have `remote_files[].is_downloaded: true`
 - [ ] ZIP password is `picus` (AES-256 via `7z -mem=AES256 -tzip`)

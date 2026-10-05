@@ -64,7 +64,10 @@ _TARGET_TABLE: list[TargetRow] = [
     TargetRow("id_rsa",           "$HOME/.ssh/id_rsa",           "Read SSH private key",              "TA0006", "T1552", "T1552.004", "Credential Access",   False, "PRIVATE KEY"),
     TargetRow("id_ed25519",       "$HOME/.ssh/id_ed25519",       "Read SSH private key",              "TA0006", "T1552", "T1552.004", "Credential Access",   False, "PRIVATE KEY"),
     TargetRow("\\.ssh/",          "$HOME/.ssh/",                 "List SSH directory",                "TA0007", "T1083", "",          "Discovery",           False, "id_"),
-    TargetRow(".bash_history",    "$HOME/.bash_history",         "Read bash history",                 "TA0006", "T1552", "T1552.003", "Credential Access",   False, " "),
+    # .bash_history holds arbitrary user commands — there is no predictable
+    # substring. An empty expected_output makes the renderer omit
+    # success_conditions, which is what Picus does for 465/635 of its processes.
+    TargetRow(".bash_history",    "$HOME/.bash_history",         "Read bash history",                 "TA0006", "T1552", "T1552.003", "Credential Access",   False, ""),
     TargetRow(".bashrc",          "$HOME/.bashrc",               "Read .bashrc",                      "TA0003", "T1546", "T1546.004", "Persistence",         False, "export"),
     TargetRow("/etc/crontab",     "/etc/crontab",                "Read /etc/crontab",                 "TA0003", "T1053", "T1053.003", "Persistence",         True,  "SHELL="),
     TargetRow("/var/spool/cron/", "/var/spool/cron/",            "List cron spool",                   "TA0003", "T1053", "T1053.003", "Persistence",         True,  "SHELL="),
@@ -79,6 +82,18 @@ _TARGET_TABLE: list[TargetRow] = [
 # ---------------------------------------------------------------------------
 # Profile
 # ---------------------------------------------------------------------------
+def _emit_success(lines: list[str], spec) -> None:
+    """Append success_conditions only when there is something real to match.
+
+    Picus omits success_conditions on 465 of 635 play_processes. A blank or
+    whitespace-only `output:` is never used by Picus and makes the check
+    effectively unconditional, so we emit nothing instead.
+    """
+    if spec.expected_output and spec.expected_output.strip():
+        lines.append(f"                  success_conditions:")
+        lines.append(f"                    - output: '{spec.expected_output}'")
+
+
 class LinuxProfile(Profile):
     name = "linux"
     module_name = "Linux Endpoint Scenario"
@@ -164,13 +179,36 @@ class LinuxProfile(Profile):
             f"                      Operator: eq",
             f"                  Operator: and",
             f"              play_processes:",
-            f"                - path: {spec.shell_path}",
-            f"                  arguments: {spec.shell_flag} \"cat '{safe_args}'\"",
-            f"                  timeout: {spec.timeout}",
-            f"                  success_conditions:",
-            f"                    - output: '{spec.expected_output}'",
+        ])
+        drop = spec.drop_path or f"/tmp/{spec.dropper_name or spec.name}"
+        if spec.archive_name:
+            # Picus idiom (cf. PUMAKIT Malware Campaign): remote_files is
+            # nested INSIDE the play_process that uses the payload, and the
+            # process executes the dropped file. Without this the dropper is
+            # never placed on the target, so the hashes in keyword_queries
+            # could never appear in telemetry and detection always failed.
+            lines.extend([
+                f"                - arguments: {drop}",
+                f"                  timeout: {spec.timeout}",
+                f"                  remote_files:",
+                f"                    - file: files/{spec.archive_name}",
+                f"                      path: {drop}",
+                f"                      is_downloaded: true",
+                f"                      is_executable: true",
+            ])
+            _emit_success(lines, spec)
+        else:
+            # No dropper built — run the command inline and key detection on
+            # the command itself, never on a file that does not exist.
+            lines.extend([
+                f"                - path: {spec.shell_path}",
+                f"                  arguments: {spec.shell_flag} \"cat '{safe_args}'\"",
+                f"                  timeout: {spec.timeout}",
+            ])
+            _emit_success(lines, spec)
+        lines.extend([
             f"              rewind_processes:",
             f"                - arguments: history -c; unset HISTFILE",
-            f"                - arguments: rm -rf /tmp/{spec.dropper_name or spec.name}",
+            f"                - arguments: rm -rf {drop}",
         ])
         return "\n".join(lines)

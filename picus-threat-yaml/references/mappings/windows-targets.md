@@ -44,7 +44,7 @@ TargetRow(
     expected_output="...",       # substring for success_conditions.output
     play_path="...",             # executable to invoke
     play_arguments="...",        # arguments (use {target}, {name}, {pid}, {b64_payload})
-    category="Lateral Movement Techniques (Windows)",  # only for lateral
+    category="Lateral Movement Techniques",  # only for lateral
 )
 ```
 

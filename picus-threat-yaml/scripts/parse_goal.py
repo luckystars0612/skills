@@ -11,6 +11,8 @@ Usage:
 
 from __future__ import annotations
 
+import re
+
 import argparse
 import json
 import sys
@@ -59,6 +61,23 @@ def _extract_targets(text: str, profile) -> list[str]:
                 seen.add(needle)
                 skip_ranges.append((pos, pos + len(needle)))
             idx = pos + len(needle)
+
+    if found:
+        return found
+
+    # Nothing matched literally. Try a normalised pass so natural phrasing works:
+    # ".bash_history" -> "bash history" matches "read bash history".
+    # Without this, an ordinary goal falls through to the non-functional stub.
+    def _norm(s: str) -> str:
+        return re.sub(r"[^a-z0-9]+", " ", s.lower()).strip()
+
+    hay = _norm(text)
+    for row in sorted_rows:
+        needle = row.target_regex.replace("\\", "")
+        n = _norm(needle)
+        if len(n) >= 4 and n in hay and needle not in seen:
+            found.append(needle)
+            seen.add(needle)
     return found
 
 
@@ -74,6 +93,9 @@ def parse_goal(text: str, timeout: int = 15, module: str = "linux") -> list[Acti
 
     if not tokens:
         return [ActionSpec(
+            # NOTE: this is a non-functional stub. build_threat.py will still
+            # render it, but validate_threat.py rejects any action containing
+            # "<unknown>" — map the goal to a real target or hand-author instead.
             name="execute_target",
             title="Execute target via shell",
             description=f"Auto-generated from goal: {text.strip()}",

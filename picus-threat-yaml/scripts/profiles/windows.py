@@ -8,7 +8,7 @@ Mirrors the canonical Windows shape (BlackMatter-style):
     affected_platforms: 6-distro Windows block
                         (Server 2016/2019/2022/2025, Win 10/11)
     category:         Attack Scenario
-                       (or "Lateral Movement Techniques (Windows)" for lateral)
+                       (or "Lateral Movement Techniques" for lateral)
     keyword_queries:  ((sha256 OR sha1 OR md5 OR dropper OR target)
                        AND NOT ("PICUS_REWIND"
                                 OR ("File created:" AND
@@ -262,7 +262,7 @@ WINDOWS_TARGET_TABLE: list[TargetRow] = [
         expected_output="started on",
         play_path="C:\\Tools\\psexec.exe",
         play_arguments='\\\\REMOTEHOST -u Administrator -p P@ssw0rd cmd.exe',
-        category="Lateral Movement Techniques (Windows)",
+        category="Lateral Movement Techniques",
     ),
     TargetRow(
         target_regex="wmiexec",
@@ -273,7 +273,7 @@ WINDOWS_TARGET_TABLE: list[TargetRow] = [
         expected_output="command finished",
         play_path="C:\\Tools\\wmiexec.exe",
         play_arguments='Administrator:P@ssw0rd@REMOTEHOST "whoami"',
-        category="Lateral Movement Techniques (Windows)",
+        category="Lateral Movement Techniques",
     ),
 ]
 
@@ -400,13 +400,28 @@ class WindowsProfile(Profile):
             f"                      Operator: eq",
             f"                  Operator: and",
             f"              play_processes:",
+        ])
+        drop = spec.drop_path or f"%TEMP%\\{dropper}"
+        lines.extend([
             f"                - path: {play_path}",
             f"                  arguments: '{safe_args}'",
             f"                  timeout: {spec.timeout}",
+        ])
+        if spec.archive_name:
+            # remote_files belongs on the process, not the action (0/24 real
+            # Windows Endpoint actions put it at action level).
+            lines.extend([
+                f"                  remote_files:",
+                f"                    - file: files/{spec.archive_name}",
+                f"                      path: '{drop}'",
+                f"                      is_downloaded: true",
+                f"                      is_executable: true",
+            ])
+        lines.extend([
             f"                  success_conditions:",
             f"                    - output: '{spec.expected_output}'",
             f"              rewind_processes:",
             f"                - path: '{{predefined-file-delete}}'",
-            f"                  arguments: '%TEMP%\\{dropper}'",
+            f"                  arguments: '{drop}'",
         ])
         return "\n".join(lines)

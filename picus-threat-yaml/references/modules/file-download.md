@@ -110,14 +110,34 @@ Every File Download action carries exactly these fields:
 
 ```yaml
 remote_files:
-    - file: files/<base64(MD5)>___<base64(UUID)>.<ext>     # path inside ZIP
-      path: <MD5>.<ext>                                    # on-target filename
+    - file: files/<base64("<MD5>___<uuid>.<ext>")>   # ONE base64 blob — see below
+      path: <MD5>.<ext>                               # on-target filename
       is_downloaded: true
 ```
 
 **Three fields per entry — exactly.** No `is_executable` (the binary's executability is implied by the file type), no `skip_zip_extract` (File Download payloads are flat binaries, not nested archives).
 
-**Filename encoding.** On-disk filename in `files/` is base64-encoded. Format: `<base64(MD5)>___<base64(UUID)>.<ext>`. Picus decodes server-side.
+**Filename encoding — one base64 blob, not two.** The name inside `files/` is a single
+base64 string of `"<name>___<uuid>.<ext>"`. The `___` separator and the extension live
+*inside* the encoded value; the encoded form never contains `___` and never carries a dot.
+Keep the `=` padding. Verified on 76/76 `remote_files[].file` entries in genuine Picus
+exports.
+
+```python
+import base64, uuid
+plain = f"{md5_or_name}___{uuid.uuid4()}{ext}"      # ext includes the dot
+archive_name = base64.b64encode(plain.encode()).decode()   # keep padding
+```
+
+`scripts/profiles/base.py` exposes this as `picus_archive_name(name, ext)`, and
+`scripts/validate_threat.py` rejects the old two-blob form.
+
+Real entry from the bundled CRPX0 example:
+
+```
+files/MmZmODZhNGZkZmVjNGE1YjQ5ZDU1NDVmOWE2MmVjNGNfX18wZmIwM2U4Yi03NzU2LTQ3Y2YtOTQ5Zi0zN2NiMGU0MTdiNmQuZXhl
+  decodes to  2ff86a4fdfec4a5b49d5545f9a62ec4c___0fb03e8b-7756-47cf-949f-37cb0e417b6d.exe
+```
 
 Real variants from CRPX0 (note the consistent pattern):
 
@@ -201,7 +221,7 @@ keyword_queries:
 | `keyword_queries` arms | SHA-256 / SHA-1 / MD5 / `<MD5> AND <ext>` | adds a 7-digit vector-ID arm: `("<VID>" AND ("Attachment" OR "URL"))` |
 | Affected OS scope | `[Windows]` / `[Linux]` / `[macOS]` | typically `[Linux]` or `[Windows]` |
 | `affected_platforms` block | absent | absent |
-| Payload on-target filename | base64(MD5).ext | base64(MD5).ext (same convention) |
+| Payload on-target filename | `<MD5>.<ext>` (the ZIP name is one base64 blob) | same convention |
 
 ---
 

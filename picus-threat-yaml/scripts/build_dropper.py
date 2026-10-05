@@ -20,9 +20,11 @@ Prints a JSON map of {name: {path, sha256, sha1, md5}} to stdout.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import sys
+import uuid
 from pathlib import Path
 
 
@@ -84,14 +86,27 @@ def build_dropper(action: dict, files_dir: Path) -> dict:
     # itself — but this is the canonical pattern used in PUMAKIT).
     hashes = _hashes(body)
 
+    # Picus stores a payload under a SINGLE base64 blob of
+    # "<name>___<uuid><ext>" — the separator and extension are inside the
+    # encoded string, and the padding is kept. Verified 76/76 against real
+    # Picus exports.
+    plain = f"{name}___{uuid.uuid4()}{ext}"
+    archive_name = base64.b64encode(plain.encode("utf-8")).decode("ascii")
+
+    # Where the dropper lands on the target, and what play_processes executes.
+    drop_path = (f"%TEMP%\\{dropper_name}" if is_windows
+                 else f"/tmp/{dropper_name}")
+
     files_dir.mkdir(parents=True, exist_ok=True)
-    out_path = files_dir / dropper_name
+    out_path = files_dir / archive_name
     out_path.write_bytes(body)
     out_path.chmod(0o755)
 
     return {
         "name": name,
         "dropper_name": dropper_name,
+        "archive_name": archive_name,
+        "drop_path": drop_path,
         "path": str(out_path),
         "sha256": hashes["sha256"],
         "sha1": hashes["sha1"],

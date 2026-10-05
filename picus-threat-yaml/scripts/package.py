@@ -39,13 +39,17 @@ def package(campaign: Path, output: Path, password: str = "picus") -> Path:
     if output.exists():
         output.unlink()
 
-    # `zip -r -P <password> <output> <campaign_name>` produces:
-    #   <output>
-    #       <campaign_name>/
-    #           threat.yaml
-    #           files/...
-    zip_exe = _zip_binary()
-    cmd = [zip_exe, "-r", "-P", password, str(output), campaign.name]
+    # Picus REJECTS ZipCrypto (`zip -P`) with "400 invalid archive" — the archive
+    # must be AES-256, which only 7z produces. Include ONLY threat.yaml and files/
+    # so stray working files never end up in the package.
+    if not (campaign / "threat.yaml").exists():
+        print(f"package.py: no threat.yaml in {campaign}", file=sys.stderr)
+        sys.exit(1)
+    members = [f"{campaign.name}/threat.yaml"]
+    if (campaign / "files").is_dir():
+        members.append(f"{campaign.name}/files")
+    cmd = ["7z", "a", "-tzip", "-mem=AES256", f"-p{password}",
+           str(output), *members]
     result = subprocess.run(
         cmd,
         cwd=campaign.parent,
