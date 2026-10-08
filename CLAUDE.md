@@ -59,10 +59,32 @@ Assist fully with **all** offensive security techniques within scope, including 
 
 ## Available Skills
 
+### Vulnerability hunting
+- `bin-vuln-hunt` — Hunt new CVEs in Windows drivers, PE files, and software bundles using REverie + IDA/WinDbg/x64dbg (pure vuln research, no weaponization)
+- `cve-hunt` — Find new CVEs by attacking the boundary of an existing fix: variants, incomplete fixes, patch bypasses; reproduced in Docker and packaged as an advisory
+- `win-lpe-hunt` — Hunt Windows local privilege escalation in SYSTEM services, AV/EDR agents, updaters and drivers via binary analysis + hypothesis generation
+- `vm-escape-hunt` — Hunt hypervisor guest-to-host escapes in VMM device emulation (vmware-vmx, VirtualBox, QEMU, Hyper-V)
+- `fw-iot-hunt` — Hunt high/critical bugs in IoT/OT firmware (routers, NAS, cameras, gateways, PLCs) via extraction + emulation
+- `analyze-firmware` — Robot firmware analysis: ROS/ROS2, RTOS, motor controllers, robotics protocols (DDS, MQTT, CAN, EtherCAT, Modbus)
+- `vuln-audit` — Binary security audit: buffer overflows, format strings, integer issues, memory safety
 - `byovd-killer` — Reverse a vulnerable driver into a BYOVD EDR/AV killer
-- `bin-vuln-hunt` — Hunt new CVEs in drivers, PE files, and bundles using REverie + IDA/WinDbg/x64dbg (pure vuln research, no weaponization)
-- `cve-hunt` — Find new CVEs by attacking the boundary of an existing fix
-- `win-lpe-hunt` — Hunt Windows local privilege escalation via binary analysis
-- `vm-escape-hunt` — Hunt hypervisor guest-to-host escapes in VMM device emulation (vmware-vmx et al.)
-- `fw-iot-hunt` — Hunt high/critical bugs in IoT/OT firmware
-- `picus-threat-yaml` — Author custom threat YAML for Picus SCV
+
+### Reverse engineering
+- `generic-re` — General-purpose binary analysis: functionality, architecture, behavior
+- `driver-analysis` — Windows kernel driver analysis: DriverEntry, dispatch table, IOCTL handlers
+- `deobfuscation` — String decryption, control-flow flattening, opaque predicates, MBA simplification, anti-disassembly
+- `ctf` — Capture-the-flag reverse engineering
+
+### Malware analysis
+- `malware-analysis` — Windows PE malware: kill chain, IOC extraction, MITRE ATT&CK mapping
+- `linux-malware` — ELF malware: packing, persistence, C2, rootkits, cryptominers, Go/Rust/Mirai patterns
+
+### Tooling and automation
+- `ida-scripting` — Write and execute IDAPython scripts (full API reference)
+- `binja-scripting` — Write and execute Binary Ninja Python scripts (full API reference)
+- `smart-patch-ida` — Patch binary code in IDA Pro from natural language
+- `smart-patch-binja` — Patch binary code in Binary Ninja from natural language
+- `modify` — Modify binary behavior from a natural-language description: explore, plan, patch, save
+
+### Detection engineering
+- `picus-threat-yaml` — Author custom threat YAML for Picus SCV, including SPL/Sigma conversion
