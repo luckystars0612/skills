@@ -182,12 +182,12 @@ Accept-Encoding: gzip, deflate
 
 **Format invariants:**
 
-- First line: `<METHOD> <path-containing-{PICUSID}> HTTP/1.1` — the `{PICUSID}` placeholder is **mandatory somewhere in the path**, but it is **not required to be its own `/page{PICUSID}/` segment**. Picus substitutes it at replay time with the simulated session-specific page id regardless of where in the path it sits. Confirmed variants seen in real, Picus-distributed packages (not just hand-authored ones):
+- First line: `<METHOD> <path-containing-{PICUSID}> HTTP/1.1` — the `{PICUSID}` placeholder is **mandatory somewhere in the path**, but it is **not required to be its own `/page{PICUSID}/` segment**. Picus substitutes it at replay time with the **action's display_id** (fixed per action, identical in every run — see [web-keyword-fix.md](../web-keyword-fix.md)) regardless of where in the path it sits. Confirmed variants seen in real, Picus-distributed packages (not just hand-authored ones):
   - `/page{PICUSID}/index.php?s=...` — own segment (the common case, use this by default when there's no reason to do otherwise)
   - `/page{PICUSID}.htm` — glued directly to a file extension, no trailing slash
   - `/loginpage{PICUSID}.htm` — glued onto a literal word (`loginpage`) with no delimiter at all
   - `/page{PICUSID}/cli` — own segment followed by more path
-  Pick whichever form matches the real endpoint path you're imitating (e.g. a login page can legitimately be `/loginpage{PICUSID}.htm` instead of forcing an artificial `/page{PICUSID}/login.htm`). The only hard rule is that the literal token `{PICUSID}` must appear once in the path — write it verbatim as `{PICUSID}` and move on; Picus owns what actual value goes there at replay time, not the author.
+  Pick whichever form matches the real endpoint path you're imitating (e.g. a login page can legitimately be `/loginpage{PICUSID}.htm` instead of forcing an artificial `/page{PICUSID}/login.htm`). The only hard rule is that the literal token `{PICUSID}` must appear once in the path — write it verbatim as `{PICUSID}`; Picus fills in the action's display_id, which is what the keyword must contain.
 - Subsequent lines: HTTP headers, one per line.
 - **NEVER emit a `Host:` header.** The target host and port are supplied by the Picus assessment configuration at replay time, not by the `.req` file. Adding `Host:` conflicts with that injection and is wrong. None of the canonical examples contain a `Host:` line — the request line is followed directly by `User-Agent`. This applies even when the attack targets a specific host or a non-standard port (e.g. SAP on `:50000`): the host/port belongs in the assessment target, not the request file. Do not add `Host:` "to be safe" or because a captured request had one.
 - The only headers to include are the ones the attack actually needs: `User-Agent`, `Accept`, `Accept-Language`, `Accept-Encoding`, plus `Authorization` / `Content-Type` / `Content-Length` / `Cookie` when the request body or auth requires them. No `Host`, and no invented headers.
@@ -211,70 +211,44 @@ Content-Length: 1287
 
 ---
 
-## `keyword_queries` — Picus page-id form
+## `keyword_queries` — always `("page<display_id>")`
 
-Every Web Application action's `keyword_queries` is a single-element list containing a single parenthesized string:
+Every Picus-authored Web Application action uses a single-element list with one term:
 
 ```yaml
 keyword_queries:
     - ("page5356229")
 ```
 
-The number `5356229` is a Picus-internal page/asset ID that matches the `.req` file. This is only a tracking key — no detection logic. **The literal word is always `page`, even when the `.req` file's own path uses a different word for its `{PICUSID}` placeholder** (e.g. a `.req` whose first line is `POST /loginpage{PICUSID}.htm` still gets `keyword_queries: [("page155738")]` — confirmed on the real Authentication Bypass Web Attack Campaign package). Do not try to match the keyword-query prefix to the path's wording; always use bare `page<digits>`. Use this form **only** when the threat will be graded purely by an inline WAF that inspects the request; it is **not** searchable in downstream logs (see next section).
+`5356229` is the **action's display_id** — the same number Picus substitutes for `{PICUSID}` in
+the `.req` path at replay, in every run. The token therefore sits in the request URI, which every
+WAF / proxy / SIEM web log records, and it is unique to the action. **The literal word is always
+`page`**, even when the `.req` path uses a different word before the placeholder (a `.req` whose
+first line is `POST /loginpage{PICUSID}.htm` still gets `("page155738")` — confirmed on the real
+Authentication Bypass Web Attack Campaign package).
 
----
+> **Correction (2026-10-19).** Earlier versions of this doc said `page<PICUSID>` is
+> "unpredictable" and recommended content-based OR-of-arms keywords for SIEM detection. Both were
+> wrong. Replayed against Cloudflare → Splunk, content keywords cross-matched other actions'
+> logs (57/69 actions in one campaign), body/header arms never matched (the log feed has the
+> request line only), and a body-only keyword left its campaign permanently Not Logged. Full
+> evidence and the fix workflow: [web-keyword-fix.md](../web-keyword-fix.md).
 
-## `keyword_queries` — content-based, log-resilient form (recommended for SIEM/Splunk detection)
+### Custom threats: the id only exists after import
 
-When the goal is to **find this action's request in collected logs** (Splunk, Sentinel, Elastic, a WAF/proxy SIEM feed) — not just inline WAF grading — the page-id form does not work, and a naive single `AND` chain is fragile. Build a **resilient OR-of-arms** query instead. Two facts drive this:
+A display_id is assigned when the action is created, Picus stores `keyword_queries` verbatim, and
+re-importing creates new actions with new ids. So for a **custom** web threat:
 
-1. **`page<PICUSID>` is unpredictable.** `{PICUSID}` in the `.req` is a macro Picus fills at replay time with its own session/asset id. You cannot know that number when authoring, so a hardcoded `("page1234")` will not match the logged URL. Never rely on it for log search.
-2. **Every WAF/proxy/LB vendor logs a different subset of the request.** F5 BIG-IP ASM, Cloudflare, Check Point, Akamai, Imperva, nginx, mod_security each export different fields: some log the full URI with query string, some only the decoded path, some strip the query, **most do NOT log the request body**, few log arbitrary headers, and percent-encoding/case varies. A single `AND` chain that assumes one field misses on any device that logged a different one.
+1. Author the YAML with a temporary keyword (a specific URI token of that request — never a
+   generic path like `/wp-admin/admin-ajax.php`, never a body/header-only token).
+2. Import once.
+3. Run `scripts/fix_web_keywords.py` (`ids` → `fix` → `verify`) to set every action to
+   `("page<display_id>")` in place and sync the local `threat.yaml`.
+4. Re-check each edited action: editing **loses Products** (`affected_products`) and, through the
+   UI form, also blanks description and Method — the script preserves those two. Details in
+   [web-keyword-fix.md](../web-keyword-fix.md#what-editing-an-action-does-to-its-other-fields).
 
-**Rule: write the query as an OR of self-sufficient arms — one per field the request touches — so whichever field a given device logged still produces a hit.** "Not this one, then that one."
-
-```
-(
-     ( <arm keyed on the URL path> )
-  OR ( <arm keyed on a query-string param/value> )
-  OR ( <arm keyed on a request-body field/value> )
-  OR ( <arm keyed on a distinctive header value> )
-)
-```
-
-Rules for the arms:
-
-- **Anchor on the path first.** The URL path (or a distinctive path segment) is the most universally logged artifact. Always include at least one **path-only** arm so the query still fires on devices that strip the query string and body.
-- **Each arm must be self-sufficient.** `AND` only tokens that co-occur *in the same field*. Never `AND` a path token with a body token inside one arm — if that device didn't log the body, the whole arm fails. Split them into separate OR arms instead.
-- **Body arms are fallbacks, never the sole anchor.** Most WAFs don't log the body. If the only thing separating the attack from benign traffic lives in the body (e.g. `has_admin_role:true`), still add the best path/query arm you have and accept that body-less loggers can only see "a request to this endpoint."
-- **Cover encoding variants.** If a token contains characters a device may percent-encode, OR the decoded and encoded forms: `("../" OR "%2e%2e%2f")`, `("<script" OR "%3Cscript")`, `("UNION SELECT" OR "UNION%20SELECT")`. A space (`%20`) leaves words intact, but quotes, commas, slashes and angle brackets do not.
-- **Prefer stable, attack-specific tokens** the request actually carries: the endpoint path, a distinctive query `param=value`, an injected payload string, a leaked-token prefix (`glpat-`), a unique username you created, a UUID that appears in both the URL and the body. Avoid generic single words (`password`, `admin`, `GET`) as a lone token.
-- Add a trailing `AND NOT (...)` only when a specific benign source is known to collide.
-- Every token you write must appear verbatim in the `.req` file. Verify before shipping.
-
-**Worked examples** (every token is present in the actual request):
-
-Zero-to-admin (`POST /api/users`, body `has_admin_role:true`) — body arms add precision, path arm survives body-less logging:
-```
-(("api/users" AND "has_admin_role") OR ("has_admin_role" AND "true") OR ("/api/users"))
-```
-
-SQL injection (`GET /api/v2.0/scans/.../log?sql=1 UNION SELECT ...`) — payload lands in the query, which many devices log:
-```
-(("api/v2.0/scans" AND "sql=") OR ("UNION" AND "SELECT") OR ("UNION%20SELECT") OR ("harbor_user"))
-```
-
-Repo dump with a leaked token in a header (`GET /api/v4/projects/.../repository/archive`, `PRIVATE-TOKEN: glpat-...`):
-```
-(("repository/archive") OR ("api/v4/projects" AND "archive.tar.gz") OR ("glpat-"))
-```
-
-App-specific POST envelope (`POST /RESTAdapter/snap-in/smcapp`, body carries a marker string):
-```
-(("RESTAdapter/snap-in/smcapp") OR ("RESTAdapter" AND "smcapp") OR ("SEND NOTIFICATIONS FROM SAP"))
-```
-
-The path arm carries most vendors; the query/body/header arms raise precision where those fields exist. Choose the content-based form whenever the threat's results will be reviewed in a SIEM; keep the `("page<digits>")` form only for pure inline-WAF grading.
+Do not "fix the YAML and re-import": the new import gets new ids and the keywords are wrong again.
 
 ---
 
@@ -355,10 +329,12 @@ The path arm carries most vendors; the query/body/header arms raise precision wh
 - [ ] `severity: High`, `category: Web Application`, `ukc_phase: Exploitation`, `title: Exploitation` — copy verbatim
 - [ ] `affected_os: [- Windows, - Linux, - macOS]` (or narrower per-action)
 - [ ] Each action has `cwe`, `owasp`, `use_case` set from the vocabulary tables
-- [ ] Each action's `keyword_queries` is content-based and log-resilient: an **OR of self-sufficient arms** (path arm + query/body/header arms), every token present verbatim in the `.req`, at least one **path-only** arm — NOT a bare `("page<digits>")` unless grading is pure inline-WAF (page ids are unpredictable at replay and unsearchable in logs)
+- [ ] Each action's `keyword_queries` is (or will be, after import) exactly `("page<display_id>")` — before import use a temporary keyword built from a specific URI token, never a body/header-only or generic-path token
+- [ ] After import: run `scripts/fix_web_keywords.py ids/fix/verify`, then re-check one action in the UI (Products will be empty; description and Method must still be there)
 - [ ] Each action has `request_content: files/<digits>.req` and a matching `.req` file exists in `files/`
 - [ ] The `.req` file's first line contains the literal `{PICUSID}` token somewhere in the path (mandatory) — it does not need to be its own `/page{PICUSID}/` segment; `/page{PICUSID}.htm` or `/loginpage{PICUSID}.htm` are both valid, confirmed forms
-- [ ] `keyword_queries` page-id form always uses the literal word `page<digits>`, regardless of what word the `.req` path actually uses for its `{PICUSID}` placeholder
+- [ ] `keyword_queries` always uses the literal word `page<digits>`, regardless of what word the `.req` path uses before its `{PICUSID}` placeholder
+- [ ] No unresolved placeholders (`$POSTID`, `<id>`) left in the `.req` — they are sent literally
 - [ ] The `.req` file has **NO `Host:` header** (target host/port comes from the assessment config, not the request file) — the request line is followed directly by `User-Agent`
 - [ ] If `cve` is set, add it; if `cwe` is set, validate against the CWE catalog
 - [ ] Objective `result_condition` references `%action-1%`, Operator `or`

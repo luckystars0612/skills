@@ -67,7 +67,7 @@ their actions are correctly graded by the Picus validator.
 
 ---
 
-> **A single space is not a wildcard.** Measured over 635 `play_processes` in 78 exported
+> **A single space is not a wildcard.** Measured over 1169 `play_processes` in 171 exported
 > Picus threats, **zero** `success_conditions.output` values are blank or whitespace-only.
 > `output: " "` requires a literal space in stdout and makes the check effectively
 > unconditional, so the action reports success even when the attack did nothing.
@@ -77,8 +77,9 @@ their actions are correctly graded by the Picus validator.
 >
 > | Picus idiom | Cases | Meaning |
 > |---|---:|---|
-> | omit `success_conditions` entirely | 465/635 | no output check on this process |
+> | omit `success_conditions` entirely | 625/1169 (53%) | no output check on this process |
+> | `{output: "..."}` | 441 (38%) | expect that substring in stdout |
 > | `{code: N, is_inverse: true}` | 43 | succeeded **unless** the exit code is N — e.g. `{code: 2, is_inverse: true}` |
 > | `{output: "<failure marker>", is_inverse: true}` | 8 | succeeded **unless** that string appears — e.g. `FullyQualifiedErrorId :`, `permissiondenied` |
-> | `{code: N}` | 4 | expect a specific exit code |
+> | `{code: N}` | 9 | expect a specific exit code |
 > | `{code: N, output: "..."}` | 2 | both, e.g. `{code: 1, output: "No Instance"}` |

@@ -145,6 +145,27 @@ def check_archive_name(name: str, rep: Report, where: str) -> None:
         rep.warn(where, f"decoded payload name lacks a UUID after '___': {dec[:60]}")
 
 
+# Measured against the live import API, not documented anywhere.
+COMMENT_MAX = 255
+
+# The only keyword shape that attributes a web log to exactly one action: page + display_id
+# (the value the agent puts in place of {PICUSID}). See references/web-keyword-fix.md.
+WEB_KEYWORD = re.compile(r'\("page\d+"\)')
+
+# Values the import API refuses for affected_product / affected_products. The
+# GET /v1/threat-library/action-parameters list is not usable for this: it returned a
+# single entry ("Microsoft Windows") on an instance that happily accepted Drupal,
+# Joomla and PHP, so the only reliable source is what the import accepts.
+PRODUCT_REJECTED = {"WordPress", "Wordpress", "WordPress Plugin", "WP"}
+# "Wordpress" (lower-case p) is the spelling Picus's own predefined WordPress campaigns
+# carry in affectedProducts; "WordPress" is what the import refused. Not yet confirmed by
+# an import of our own, so it is listed here rather than suggested in the error text.
+PRODUCT_KNOWN_GOOD = {"Dynamic Web Applications", "Wordpress", "PHP", "Drupal", "Joomla",
+                      "ThinkPHP", "Liferay Portal", "Microsoft SharePoint",
+                      "Microsoft Office", "Microsoft Windows", "Jenkins", "MySQL",
+                      "MobileIron", "All Browsers"}
+
+
 def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
     c = doc.get("campaign") or doc
     mod = c.get("module")
@@ -183,6 +204,11 @@ def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
             elif int(m.group(1)) > len(objs):
                 rep.err(where, f"campaign references {r} but there are only {len(objs)} objectives")
 
+    for p in (c.get("affected_products") or []):
+        if isinstance(p, str) and p in PRODUCT_REJECTED:
+            rep.err("campaign.affected_products",
+                    f"{p!r} is rejected by the import API; use "
+                    f"'Dynamic Web Applications' when the product has no entry")
     for oi, o in enumerate(objs, 1):
         ow = f"objective-{oi}"
         if o.get("type") and o["type"] not in VOCAB["objective_types"]:
@@ -215,6 +241,21 @@ def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
                 rep.err(aw, "contains a '<unknown>' placeholder — this is an auto-generated "
                             "stub, not a usable action; map the goal to a real target or "
                             "hand-author it")
+            # The import API enforces a 255-character cap on comment and refuses the
+            # whole pack otherwise: "exceeds max length (900 > 255)". Found the hard
+            # way -- five packs were rejected at upload before this check existed.
+            if isinstance(a.get("comment"), str) and len(a["comment"]) > COMMENT_MAX:
+                rep.err(aw, f"`comment` is {len(a['comment'])} characters; the import API "
+                            f"caps it at {COMMENT_MAX} and rejects the whole pack. Keep "
+                            f"the tier, any lab verdict and the source URL; put the long "
+                            f"prose in a review document instead")
+            ap = a.get("affected_product")
+            if isinstance(ap, str) and ap in PRODUCT_REJECTED:
+                rep.err(aw, f"affected_product {ap!r} is rejected by the import API "
+                            f"('{ap}' is not a valid value). affected_product is a "
+                            f"curated vocabulary, not free text; for a product with no "
+                            f"entry use 'Dynamic Web Applications', which Picus itself "
+                            f"uses on its Generic XSS campaign")
             cat = a.get("category")
             if mod in MODULE_CATEGORIES and cat and cat not in MODULE_CATEGORIES[mod]:
                 rep.err(aw, f"category {cat!r} invalid for module {mod!r}; allowed: "
@@ -277,6 +318,18 @@ def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
                     if not isinstance(kq, str):
                         rep.err(aw, f"keyword_queries entry is {type(kq).__name__}, expected str")
                         continue
+                    if re.search(r'(?<!\\)\\"\s*(\)|OR\b|AND\b|$)', kq):
+                        rep.warn(aw, "a term ends in an escaped quote (\\\") — the closing quote is "
+                                     "escaped, so the term may run on into the rest of the query")
+                    if "\\r\\n" in kq or "\\n" in kq:
+                        rep.warn(aw, "keyword contains a literal \\r\\n / \\n — that text never "
+                                     "appears in a log record")
+                    if mod == "Web Application" and not WEB_KEYWORD.fullmatch(kq.strip()):
+                        rep.warn(aw, "web keyword is not (\"page<display_id>\"). Picus replaces "
+                                     "{PICUSID} with the action's display_id, which exists only after "
+                                     "import: after importing, run scripts/fix_web_keywords.py "
+                                     "(references/web-keyword-fix.md). Content keywords cross-match "
+                                     "other actions and body/header tokens are not in most web logs")
                     has_not = "AND NOT" in kq
                     if has_not and mod in AND_NOT_NEVER:
                         rep.warn(aw, f"has an `AND NOT` filter, but Picus uses none for {mod} (0%)")

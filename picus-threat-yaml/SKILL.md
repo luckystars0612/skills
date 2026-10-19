@@ -52,6 +52,11 @@ When the user asks for a threat:
    local threats pass with zero errors; a deliberately broken threat trips 18 checks.
 6. **Package** — AES-256-encrypted ZIP with password `picus`, then validate the archive
    itself: `validate_threat.py my_threat.zip`.
+7. **Web Application only — fix keywords after import.** The correct keyword is
+   `("page<display_id>")`, and the display_id only exists once Picus has created the action.
+   After the import run `scripts/fix_web_keywords.py ids|fix|verify` (see
+   [web-keyword-fix.md](references/web-keyword-fix.md)), then re-check the edited actions:
+   **Products is always lost** on an edit; description and Method must still be present.
 
 If the input is a Splunk SPL / Sigma rule / plain-text goal AND the module is
 **Linux Endpoint** or **Windows Endpoint**, you can use the [auto-pipeline](#auto-pipeline-linux--windows-endpoint-only)
@@ -72,6 +77,7 @@ Alongside it:
 | Reference | Contents |
 |---|---|
 | [detection.md](references/detection.md) | what "detection" means in Picus, how `keyword_queries` drives it, and the 5858-rule Detection Content catalog |
+| [web-keyword-fix.md](references/web-keyword-fix.md) | Web Application: `{PICUSID}` = action display_id, why the keyword must be `("page<id>")`, the post-import fix script, and what an action edit loses (Products) |
 | [vocab-threat-actors.md](references/vocab-threat-actors.md) | all 206 `threat_actor` values **with aliases** |
 | [vocab-malware-families.md](references/vocab-malware-families.md) | all 2233 `malware_family` values |
 | [vocab-platforms.md](references/vocab-platforms.md) | all 92 `affected_platforms` name/architecture pairs |
@@ -188,6 +194,8 @@ Conventions:
   segment — `/page{PICUSID}.htm` and `/loginpage{PICUSID}.htm` are both confirmed-valid forms,
   see [web-application.md](references/modules/web-application.md)) and **no `Host:` header**
   (the target host/port comes from the Picus assessment config, not the `.req` file).
+  Picus replaces `{PICUSID}` with the action's display_id, so the keyword is `("page<display_id>")`
+  — set after import with `scripts/fix_web_keywords.py`.
 - **Data Exfiltration:** realistic-looking PDF/XLSX in `files/<base64("<id>___<uuid>.<ext>")>`
   — one base64 blob, same rule as above.
 - **URL Filtering:** no payload (`.yaml`-only export).
@@ -586,8 +594,11 @@ measured over all 31180 Picus actions. Key points:
   real Picus threats. The `{id, query, type: Default}` object is only how the **API** returns it;
   never write a `type:` key into `threat.yaml`.
 - One query per action (99.98% of the library).
-- The query must contain something **uniquely attributable to this action** — a file hash, the
-  `{PICUSID}` marker, a sandbox-unique argument — or every simulation will look detected.
+- The query must contain something **uniquely attributable to this action** — a file hash, a
+  sandbox-unique argument, or for Web Application `page<display_id>` (the value Picus puts in
+  place of `{PICUSID}`) — or every simulation will look detected. Generic web tokens
+  (`/wp-admin/admin-ajax.php`, `X-Requested-With`) match other actions' logs; body/header tokens
+  are missing from most web log feeds. See [web-keyword-fix.md](references/web-keyword-fix.md).
 - `AND NOT (…)` exists to suppress Picus's **own** cleanup noise (`PICUS_REWIND`, `rm -rf`,
   `pkill`). Add it only for Endpoint modules and Data Exfiltration.
 
@@ -631,6 +642,9 @@ what it checks, plus the few judgement calls it cannot make:
 - [ ] `success_conditions` sits on the **process**, not the action
 - [ ] `title` omitted for macOS Endpoint and URL Filtering, present elsewhere
 - [ ] Each `request_content` path matches a real `.req` file in `files/` (Web Application)
+- [ ] Web Application: after import, every action's keyword is `("page<display_id>")`
+      (`fix_web_keywords.py verify`), and the edited actions were re-checked — Products empty is
+      expected, empty description / Method / request is not
 - [ ] Result-condition references (`%action-1%`, `%objective-N%`, `%process-N%`) don't exceed the actual item count
 - [ ] Result-condition join operator matches the module table above
 - [ ] `keyword_queries` follows the canonical template for the module
@@ -654,5 +668,8 @@ what it checks, plus the few judgement calls it cannot make:
 | `400 — invalid YAML` | Syntax error or missing required field | Check indentation, required fields (`name`, `module`, `objectives`, `actions`) |
 | `File not found in archive` | `remote_files.file` path doesn't match | Ensure `file: files/payload.bin` matches actual ZIP path |
 | Result condition reference error | `%action-N%` or `%objective-N%` exceeds item count | Renumber so max reference ≤ actual item count |
+| Web action Not Logged although its request is in the SIEM | keyword not `("page<display_id>")` (body/header-only token, or never fixed after import) — or the log arrived after Picus queried | `fix_web_keywords.py verify`; if keywords are right, compare `_indextime` with Picus's search time and use Rerun detection |
+| Web action Logged but the log belongs to another action | generic content keyword (shared path such as `/wp-admin/admin-ajax.php`) | set `("page<display_id>")` with `fix_web_keywords.py` |
+| Products / description / Method empty after editing a web action | UI edit form drops them; Products cannot be set for Web Application | expected for Products; restore description/Method with `fix_web_keywords.py fix --yaml-dir` |
 </content>
 </invoke>

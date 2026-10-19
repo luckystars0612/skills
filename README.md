@@ -80,6 +80,10 @@ Continuous Validation (SCV)** Threat Library.
 - Validates required fields, file-path consistency, and result-condition
   references
 - Packages the threat as a ZIP archive ready for Picus SCV import
+- Web Application threats: after import, sets every action's keyword to
+  `("page<display_id>")` with `scripts/fix_web_keywords.py` (Picus fills
+  `{PICUSID}` with the action's display_id, which only exists once the action
+  is created) — see `references/web-keyword-fix.md` for what an edit loses
 
 **Quick start**
 ```bash
