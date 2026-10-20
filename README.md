@@ -1,21 +1,25 @@
 # Custom Skills Collection
 
-A curated collection of custom **Claude Code** skills for specialized, recurring
-tasks. Each skill is a self-contained package of instructions, reference
-material, and helper scripts that Claude can invoke on demand.
+A curated collection of custom agent skills for specialized, recurring tasks,
+installable into **Claude Code** and **MiniMax Code (`mcode`)**. Each skill is a
+self-contained package of instructions, reference material, and helper scripts
+that the agent can invoke on demand.
 
-The repo is laid out as a drop-in skills library: clone it, point Claude Code at
-it (or copy individual sub-directories into your own skills folder), and the
+The repo is laid out as a drop-in skills library: clone it, run the installer for
+your host (or copy individual sub-directories into its skills folder), and the
 matching skill becomes available via the `Skill` tool or the `/<skill-name>`
- slash syntax.
+slash syntax.
 
 ---
 
 ## Install
 
-Install every skill in the repo (and its slash commands) into Claude Code with one
-script. Skills go to `~/.claude/skills/<name>/` and slash commands to
-`~/.claude/commands/`. Run from the repo root.
+Run the installer for your host from the repo root. A skill is any top-level
+directory containing a `SKILL.md`, so new skills are picked up automatically.
+
+### Claude Code
+
+Skills go to `~/.claude/skills/<name>/` and slash commands to `~/.claude/commands/`.
 
 **Linux / macOS**
 ```bash
@@ -29,9 +33,58 @@ script. Skills go to `~/.claude/skills/<name>/` and slash commands to
 ```
 
 Both honor `CLAUDE_HOME` to target a non-default location (default `~/.claude`), skip
-`commands/README.md`, and overwrite any existing copy of a skill. A skill is detected as
-any top-level directory containing a `SKILL.md`, so new skills are picked up automatically.
-Start a new Claude Code session afterward to load them.
+`commands/README.md`, and overwrite any existing copy of a skill. Start a new Claude Code
+session afterward to load them.
+
+### MiniMax Code (`mcode`)
+
+```bash
+./install-mcode.sh          # or: ./install-mcode.sh --dry-run
+```
+```powershell
+.\install-mcode.ps1         # or: .\install-mcode.ps1 -DryRun
+```
+
+Installs into `~/.minimax/skills/<name>/` (override with `MINIMAX_HOME` or
+`MINIMAX_DATA_DIR`). Start a new `mcode` session; `/skills` lists them and each one
+is invocable as `/<skill-name>`.
+
+mcode *also* auto-discovers foreign skill directories, so a Claude Code install is
+already visible to it. Discovery roots, in precedence order (ranked by root kind
+first, then by numeric priority):
+
+| Root | Source id | Kind (rank) | Priority |
+| --- | --- | --- | --- |
+| `<workspace>/.minimax/skills` | `workspace-minimax` | workspace (1) | 65 |
+| `<workspace>/.claude/skills` | `workspace-cc` | workspace (1) | 60 |
+| `<workspace>/.agents/skills` | `workspace-agents` | workspace (1) | 55 |
+| `~/.minimax/agents/<agent>/skills` | `agent-user` | agent (2) | 100 |
+| `~/.claude/skills` | `user-cc` | user (3) | 40 |
+| `~/.codex/skills` | `user-codex` | user (3) | 35 |
+| `~/.agents/skills` | `user-agents` | user (3) | 30 |
+| `~/.minimax/skills` | `user-global` (native) | global (3) | 0 |
+| `~/.minimax/.builtin-skills` | seeded built-ins | builtin (4) | 20 |
+
+Workspace roots walk up to the git root. Same-named skills are de-duplicated —
+one winner per name, the rest shadowed — so with both installers run, the
+`~/.claude/skills` copy (user, 40) shadows the `~/.minimax/skills` one (global, 0).
+Harmless when both are installed from this repo, since the contents are identical.
+Discovery is controlled by `skills.external` in `$MINIMAX_DATA_DIR/config.yaml`
+(all sources enabled by default):
+
+```yaml
+skills:
+  external:
+    enabled: true
+    walkUp: true
+    sources:
+      user-cc: { enabled: true, priority: 40 }
+```
+
+Installing natively is what keeps the skills working with `skills.external.enabled: false`,
+or on a machine with no Claude Code at all.
+mcode has **no user-level `commands/` directory** — a skill's `commands/*.md` files are
+copied along but only the skill's own `/<name>` invocation is wired up there.
 
 ---
 
@@ -40,6 +93,8 @@ Start a new Claude Code session afterward to load them.
 ```
 .
 ├── README.md                       # You are here
+├── install.sh / install.ps1        # Install into Claude Code (~/.claude)
+├── install-mcode.sh / .ps1         # Install into MiniMax Code (~/.minimax)
 └── <skill-name>/                   # One sub-directory per skill
     ├── SKILL.md                    # Required: skill frontmatter + instructions
     ├── scripts/                    # Optional: helper scripts / parsers
@@ -347,24 +402,35 @@ See [byovd-killer/SKILL.md](byovd-killer/SKILL.md) for the full workflow.
    ```yaml
    ---
    name: my-new-skill
-   description: >
-     One-paragraph description. List concrete trigger phrases and the kinds
-     of tasks the skill covers. Be specific — this drives auto-invocation.
+   title: "My New Skill"
+   description: >-
+     One-paragraph description, under 1024 characters. List concrete trigger
+     phrases and the kinds of tasks the skill covers. Be specific — this drives
+     auto-invocation.
    ---
    ```
+   `name` must equal the directory name (lowercase, digits, hyphens only).
 3. Add `scripts/`, `references/`, `examples/` as needed. Keep each skill
    self-contained — no cross-references between skills.
 4. Add a short entry to the **Available Skills** section above so the skill is
    discoverable from this README.
+5. Re-run `./install.sh` and/or `./install-mcode.sh` to push it to the hosts you use.
 
 ---
 
 ## Conventions
 
 - **Naming** — kebab-case directory and `name:` field (e.g. `binja-scripting`).
+  The `name:` **must** equal the directory name and match `^[a-z0-9][a-z0-9-]{0,63}$`;
+  mcode rejects anything else and `install-mcode.sh` skips mismatched skills. Put a
+  human-readable label in `title:` instead.
 - **Frontmatter** — `name` + `description` are required. `description` should
   list explicit trigger phrases so Claude knows when to invoke the skill
-  automatically.
+  automatically. Keep it **≤ 1024 characters** — mcode truncates the tail beyond
+  that in its skill catalog, which silently drops trailing trigger words.
+  The frontmatter must be **strictly valid YAML**: a bare `description:` value
+  containing `": "` breaks mcode's parser and the skill loses its description
+  entirely, so use a `>-` block scalar for anything with colons.
 - **Independence** — each skill must work on its own. No skill depends on
   another skill's files being present.
 - **Self-documentation** — the `SKILL.md` body should be enough for Claude to

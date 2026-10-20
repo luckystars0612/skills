@@ -1,5 +1,6 @@
 ---
-name: Deobfuscation
+name: deobfuscation
+title: "Deobfuscation"
 description: >-
   Systematic binary deobfuscation — string decryption, control flow flattening (CFF) removal,
   opaque predicate elimination, mixed boolean-arithmetic (MBA) simplification, bogus control flow,
