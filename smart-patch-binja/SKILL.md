@@ -1,5 +1,6 @@
 ---
-name: Smart Patch (Binary Ninja)
+name: smart-patch-binja
+title: "Smart Patch (Binary Ninja)"
 description: Patch binary code in Binary Ninja using natural language — read, assemble, write, verify
 tags: [patching, assembly, binary, binja]
 author: Rikugan

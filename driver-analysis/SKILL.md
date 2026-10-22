@@ -1,5 +1,6 @@
 ---
-name: Driver Analysis
+name: driver-analysis
+title: "Driver Analysis"
 description: Windows kernel driver analysis — DriverEntry, dispatch table, IOCTL handlers, vulnerability audit
 tags: [driver, kernel, windows, ioctl, vulnerability]
 ---

@@ -1,5 +1,6 @@
 ---
-name: IDA Scripting
+name: ida-scripting
+title: "IDA Scripting"
 description: Write and execute IDAPython scripts — full API reference included
 tags: [scripting, ida, python, automation]
 author: Rikugan
