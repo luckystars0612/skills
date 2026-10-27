@@ -76,6 +76,7 @@ Alongside it:
 
 | Reference | Contents |
 |---|---|
+| [picus-house-style.md](references/picus-house-style.md) | **patterns read off the vendor's own predefined threats** — the per-OS `play_processes[].path` rule and its silent-no-op failure mode, `arguments` shell semantics, dropped-payload pattern, Picus's divergence from MITRE (`TA0112` / `T1685`), import limits, and the API recipe to re-derive all of it |
 | [detection.md](references/detection.md) | what "detection" means in Picus, how `keyword_queries` drives it, and the 5858-rule Detection Content catalog |
 | [web-keyword-fix.md](references/web-keyword-fix.md) | Web Application: `{PICUSID}` = action display_id, why the keyword must be `("page<id>")`, the post-import fix script, and what an action edit loses (Products) |
 | [vocab-threat-actors.md](references/vocab-threat-actors.md) | all 206 `threat_actor` values **with aliases** |
@@ -359,6 +360,35 @@ echo "Ready to import: /tmp/$CAMPAIGN.zip"
 
 These fields/conventions are common to most modules. **Always defer to the per-module
 doc for module-specific shape, keywords, or noise filters.**
+
+### Process `path` — the single most expensive mistake
+
+For every Endpoint-family module, `play_processes[].path` has an OS-specific shape. Getting it
+wrong does **not** fail the import: the threat loads fine, the run reports `COMPLETED`, and the
+action silently executes nothing (`completion_ratio: 0`, `prevention: "not tested"`,
+`command: " "`). Measured over 1,909 predefined Picus actions:
+
+| Module | Correct `path` | Share in Picus's own library |
+|---|---|---|
+| `Endpoint Scenario` (Windows) | **bare exe name** — `reg.exe`, `cmd.exe`, `powershell.exe` | 1958/1976 = 99.1% |
+| `Linux` / `macOS` / `Kubernetes Endpoint Scenario` | **omit `path`** entirely, whole command in `arguments` | 94–97% |
+
+```yaml
+# Windows — arguments are NOT shell-evaluated; wrap anything with & | > %VAR% in an interpreter
+- path: reg.exe
+  arguments: add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v DisableAntiVirus /t REG_DWORD /d 1 /f
+- path: cmd.exe
+  arguments: /c "%TMP%\tool.exe" --flag        # dropped payload: never in `path`
+
+# Linux / macOS / Kubernetes — no `path` key; arguments ARE shell-evaluated
+- arguments: bash -c 'cp /tmp/stager /dev/shm/stager; chmod +x /dev/shm/stager; /dev/shm/stager'
+```
+
+`"$WORKDIR"` (per-simulation working dir) and `$remotefile<digits>` / `%remotefile-<digits>%`
+(injected download URL) are available in the Unix-family endpoint modules.
+`scripts/validate_threat.py` now errors on an absolute Windows path. Full evidence, including the
+`rewind_processes` trap that makes this look like an EDR block, is in
+`references/modules/endpoint.md` → "Process `path` convention".
 
 ### `threat.yaml` top-level hierarchy
 
@@ -667,9 +697,11 @@ what it checks, plus the few judgement calls it cannot make:
 | `400 — missing threat.yaml` | `threat.yaml` not at root of the inner folder | Check ZIP structure — must be `<name>/threat.yaml` |
 | `400 — invalid YAML` | Syntax error or missing required field | Check indentation, required fields (`name`, `module`, `objectives`, `actions`) |
 | `File not found in archive` | `remote_files.file` path doesn't match | Ensure `file: files/payload.bin` matches actual ZIP path |
+| Action `not tested`, `completion_ratio: 0`, `command: " "` in the run result | absolute `path` in a Windows `play_processes` entry — agent returns empty path *and* arguments | use the bare exe name (`reg.exe`); see Process `path` above. The rewind still runs, so it looks like an EDR block |
+| Windows action never runs although `arguments` look right | `path` omitted or `' '` (the Unix form) used on `Endpoint Scenario` | Windows needs a real bare exe name in `path` |
+| `400 — 'T1562' is not valid` (whole pack refused) | Picus has no `T1562` family | tactic `TA0112` + `T1685` / `T1685.001` / `T1685.005` / `T1686` / `T1688` / `T1689` — see `references/accepted-values.md` |
+| `400 — exceeds max length (N > 255)` on `comment` | campaign/action `comment` over 255 chars | trim to ≤255; older imports silently truncated instead of failing |
 | Result condition reference error | `%action-N%` or `%objective-N%` exceeds item count | Renumber so max reference ≤ actual item count |
 | Web action Not Logged although its request is in the SIEM | keyword not `("page<display_id>")` (body/header-only token, or never fixed after import) — or the log arrived after Picus queried | `fix_web_keywords.py verify`; if keywords are right, compare `_indextime` with Picus's search time and use Rerun detection |
 | Web action Logged but the log belongs to another action | generic content keyword (shared path such as `/wp-admin/admin-ajax.php`) | set `("page<display_id>")` with `fix_web_keywords.py` |
 | Products / description / Method empty after editing a web action | UI edit form drops them; Products cannot be set for Web Application | expected for Products; restore description/Method with `fix_web_keywords.py fix --yaml-dir` |
-</content>
-</invoke>

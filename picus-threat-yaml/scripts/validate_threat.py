@@ -166,6 +166,66 @@ PRODUCT_KNOWN_GOOD = {"Dynamic Web Applications", "Wordpress", "PHP", "Drupal", 
                       "MobileIron", "All Browsers"}
 
 
+# Technique ids Picus actively rejects on import (verified HTTP 400, 2026-10-27).
+# Picus dropped MITRE's T1562 "Impair Defenses" family in favour of its own
+# TA0112 "Defense Impairment" tactic with T1685/T1686/T1688/T1689.
+KNOWN_REJECTED = ("T1562",)
+
+WINDOWS_ENDPOINT = "Endpoint Scenario"
+_ABS_WIN = re.compile(r"^[A-Za-z]:[\\/]|^\\\\")
+
+
+def check_process_path(pr: dict, mod: str, rep: "Report", where: str, label: str) -> None:
+    """Enforce the per-OS `path` shape.
+
+    Measured over 1,909 predefined Endpoint-family actions: Windows uses a bare exe
+    name in 1958/1976 processes (99.1%); Linux/macOS/Kubernetes use a single-space
+    placeholder in 94-97% and put the whole shell command in `arguments`.
+
+    Verified failure mode (agent 3.0.2.0, 2026-10-27): an absolute Windows `path` makes
+    the agent report BOTH path and arguments empty -- the run still says COMPLETED but
+    with completion_ratio 0, prevention "not tested" and `command: " "`, and nothing
+    executes. `rewind_processes` with an absolute path still runs, so the cleanup is
+    visible and the attack is not, which looks exactly like an EDR block.
+    """
+    path = pr.get("path")
+    if path is None:
+        return
+    if mod == WINDOWS_ENDPOINT:
+        if _ABS_WIN.match(str(path)):
+            rep.err(where, f"{label}.path {path!r} is an absolute path. The Windows agent "
+                           f"sends an empty path AND empty arguments for these, so the "
+                           f"action silently does nothing (run shows completion_ratio 0, "
+                           f"prevention 'not tested', command ' '). Use the bare exe name "
+                           f"({re.split(r'[\\/]', str(path))[-1]!r}); for a dropped "
+                           f"payload use `path: cmd.exe` with the file referenced from "
+                           f"`arguments` as '%TMP%\\<name>'.")
+        elif str(path).strip() == "":
+            rep.err(where, f"{label}.path is blank. `path: ' '` is the Linux/macOS/K8s "
+                           f"form; on Windows the command never runs. Use a bare exe name "
+                           f"such as 'cmd.exe' or 'powershell.exe'.")
+    elif mod in ENDPOINT_MODULES:
+        if str(path).strip() == "":
+            return
+        args = str(pr.get("arguments") or "")
+        shelly = [m for m in (";", "|", "&&", "$(", "`", ">", "<", "&") if m in args]
+        if str(path).startswith("/"):
+            # An absolute interpreter/binary with a plain argument list is genuine Picus
+            # usage (/bin/ps aux, /usr/bin/whoami, /tmp/dropped_tool -b all), so stay
+            # quiet. Only flag it when `arguments` carries shell syntax that needs a
+            # shell the direct exec will not provide.
+            if shelly:
+                rep.warn(where, f"{label} sets an absolute path {path!r} *and* shell syntax "
+                                f"{shelly} in `arguments`. Executing the binary directly "
+                                f"gives no shell, so those characters are passed through "
+                                f"literally. Drop `path` and put the whole command in "
+                                f"`arguments` (how 94-97% of Picus's {mod} processes are "
+                                f"written), or wrap it yourself in `/bin/sh -c '...'`.")
+        else:
+            rep.warn(where, f"{label}.path {path!r} is neither empty nor an absolute path; "
+                            f"for {mod} omit `path` and put the command in `arguments`.")
+
+
 def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
     c = doc.get("campaign") or doc
     mod = c.get("module")
@@ -282,6 +342,44 @@ def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
                              f"(0/92 such actions)")
             if a.get("sub_technique") and not a.get("technique"):
                 rep.err(aw, "sub_technique set without technique")
+            # Picus's technique catalog is MITRE ATT&CK *plus Picus-only ids*, and it
+            # DROPS MITRE's T1562 family. Sending an unknown id fails the whole import
+            # with HTTP 400 "'T1562' is not valid".
+            for fld, vkey in (("technique", "mitre_techniques"),
+                              ("sub_technique", "mitre_sub_techniques")):
+                val = a.get(fld)
+                if not val or vkey not in VOCAB:
+                    continue
+                if val not in VOCAB[vkey]:
+                    # KNOWN_REJECTED is proven by a 400 from the import API. Anything
+                    # else merely missing from the harvested catalog is a WARNING: the
+                    # catalog is built from a sample of the library, so an id can be
+                    # valid on the platform and absent here.
+                    if any(str(val).startswith(bad) for bad in KNOWN_REJECTED):
+                        rep.err(aw, f"{fld} {val!r} is rejected by the import API "
+                                    f"(400 \"'{val}' is not valid\") and fails the whole "
+                                    f"pack. MITRE's T1562 family does not exist in Picus: "
+                                    f"use tactic TA0112 with T1685 (Disable or Modify "
+                                    f"Tools), T1685.001 (Disable Windows Event Log), "
+                                    f"T1685.005 (Clear Windows Event Logs), T1686 / "
+                                    f"T1686.003 (firewall), T1688 (Safe Mode Boot) or "
+                                    f"T1689 (Downgrade Attack).")
+                    else:
+                        extra = ""
+                        if str(val) == "T1070.001":
+                            extra = " Picus spells 'Clear Windows Event Logs' as T1685.005."
+                        rep.warn(aw, f"{fld} {val!r} is not in the harvested Picus catalog "
+                                     f"({len(VOCAB[vkey])} ids). The catalog is a sample, so "
+                                     f"this may still be valid — confirm against a "
+                                     f"predefined action before import, because an invalid "
+                                     f"id fails the whole pack.{extra}")
+            tech, tac_id = a.get("technique"), a.get("tactic")
+            allowed = (VOCAB.get("tactic_techniques") or {}).get(tac_id)
+            if tech and allowed and tech in VOCAB.get("mitre_techniques", {}) \
+                    and tech not in allowed:
+                rep.warn(aw, f"technique {tech} is valid but Picus never pairs it with "
+                             f"tactic {tac_id} in the predefined library; observed there: "
+                             f"{allowed}")
             tac, ph = a.get("tactic"), a.get("ukc_phase")
             if tac in TACTIC_UKC and ph and ph != TACTIC_UKC[tac]:
                 rep.warn(aw, f"tactic {tac} normally pairs with ukc_phase "
@@ -374,6 +472,7 @@ def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
                         continue
                     if not (pr.get("path") or pr.get("arguments")):
                         rep.err(aw, f"play_processes[{pi}] needs a `path` or `arguments`")
+                    check_process_path(pr, mod, rep, aw, f"play_processes[{pi}]")
                     # A dropper that is delivered but never executed makes the
                     # hashes in keyword_queries unreachable, so detection can never
                     # fire. Picus always runs the dropped file (cf. PUMAKIT).

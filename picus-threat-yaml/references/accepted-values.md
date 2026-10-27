@@ -77,8 +77,32 @@ one of the categories allowed for that module.
 > name, except that `TA0011` uses the ampersand form `Command & Control`. Picus deviates on a
 > minority of actions, almost always to `Delivery`.
 
-> `technique` and `sub_technique` also use MITRE ATT&CK IDs (e.g., `T1059`, `T1059.001`).
-> Full catalog: https://attack.mitre.org — values must match IDs known to Picus.
+> `technique` and `sub_technique` use **Picus's own catalog, which is MITRE ATT&CK plus
+> Picus-specific entries — it is NOT interchangeable with MITRE.** Harvested from 1,909
+> predefined actions (2026-10-27): 133 technique ids, 159 sub-technique ids. Most are genuine
+> MITRE (`T1059`, `T1003`, `T1112`, …), but Picus **replaced MITRE's `T1562` (Impair Defenses)
+> family** with its own tactic `TA0112` (Defense Impairment) and promoted the sub-techniques to
+> top level:
+>
+> | MITRE ATT&CK | Picus |
+> |---|---|
+> | `T1562` Impair Defenses | *(does not exist)* — use tactic `TA0112` |
+> | `T1562.001` Disable or Modify Tools | **`T1685`** |
+> | `T1562.002` Disable Windows Event Logging | **`T1685.001`** |
+> | `T1070.001` Clear Windows Event Logs | **`T1685.005`** |
+> | `T1562.004` Disable or Modify System Firewall | **`T1686`** (Windows host: `T1686.003`) |
+> | `T1562.009` Safe Mode Boot | **`T1688`** |
+> | `T1562.010` Downgrade Attack | **`T1689`** |
+>
+> Other Picus-only ids: `T1680` Local Storage Discovery, `T1673` Virtual Machine Discovery,
+> `T1652` Device Driver Discovery, `T1653` Power Settings, `T1654` Log Enumeration.
+>
+> **Sending `T1562` or `T1562.001` fails the import with HTTP 400**
+> `"'T1562' is not valid"` — and it fails the *whole pack*, not just that field. Techniques
+> valid under `TA0112`: `T1112`, `T1222`, `T1553`, `T1685`, `T1686`, `T1688`, `T1689`.
+> The machine-readable catalog lives in `scripts/vocab.json` under `mitre_techniques`,
+> `mitre_sub_techniques` and `tactic_techniques`; re-harvest with
+> `GET /v1/threat-library/actions?action_ids=…` -> `frameworks.mitre`.
 
 ---
 
@@ -344,8 +368,8 @@ over time — use the export feature on a similar existing threat to discover cu
 | `affected_products` (campaign) | `Microsoft Windows`, `Apache Tomcat`, `FortiOS` |
 | `affected_product` (action) | Same list as above |
 | `malware_family` | `Cobalt Strike`, `Emotet`, `TrickBot`, `Ryuk`, `Mimikatz` |
-| `technique` | MITRE ATT&CK IDs: `T1059`, `T1566`, `T1003`, `T1021`, … |
-| `sub_technique` | MITRE ATT&CK sub-IDs: `T1059.001`, `T1003.001`, `T1566.001`, … |
+| `technique` | Picus catalog (MITRE + Picus-only): `T1059`, `T1003`, `T1112`, `T1685`, … — **not `T1562`**; see `scripts/vocab.json` -> `mitre_techniques` |
+| `sub_technique` | Picus catalog: `T1059.001`, `T1003.001`, `T1685.005`, … — see `mitre_sub_techniques` |
 
 > **Tip:** If a value is rejected on import, export a similar existing threat and check
 > the exact string used in its `threat.yaml`.
