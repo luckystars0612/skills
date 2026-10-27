@@ -173,14 +173,56 @@ KNOWN_REJECTED = ("T1562",)
 
 WINDOWS_ENDPOINT = "Endpoint Scenario"
 _ABS_WIN = re.compile(r"^[A-Za-z]:[\\/]|^\\\\")
+# '%TMP%\tool.exe' and friends: the house form for a payload the action just dropped
+_ENV_WIN = re.compile(r'^"?%[A-Za-z_][A-Za-z0-9_]*%[\\/]')
+_PREDEFINED = re.compile(r"^\{predefined-[a-z\-]+\}$")
+# Picus's five built-in helper steps (Endpoint Scenario / Windows only).
+PREDEFINED_TOKENS = {
+    "{predefined-process-list}",    # watch for a process name; "a.exe || b.exe" = any of them
+    "{predefined-file-search}",     # watch for a file path appearing
+    "{predefined-process-sleep}",   # wait N seconds; arguments is a quoted number
+    "{predefined-process-kill}",    # cleanup -- belongs in rewind_processes
+    "{predefined-file-delete}",     # cleanup -- belongs in rewind_processes
+}
+# Fields that exist in Picus's internal UI action model but never in authored threat
+# YAML: 0 occurrences across 31,356 predefined actions and 18 exported vendor threats.
+# fix_web_keywords.py has to resend them to the UI API; you never write them yourself.
+NOT_PICUS_ACTION_FIELDS = ("is_remote", "needs_creds")
+# A dropped file with one of these extensions is meant to be launched, so if nothing
+# references it the action really does nothing with it. Everything else (.dll, .dat,
+# .b64, .bin, .tmp, config/data) is a companion the payload loads or reads by itself.
+EXECUTABLE_DROP_EXTS = (".exe", ".ps1", ".bat", ".cmd", ".sh", ".elf", ".scr",
+                        ".js", ".jse", ".vbs", ".vbe", ".hta", ".py", ".pl", ".jar")
+# The AND NOT guard Picus adds to most predefined endpoint keywords, per module. Without it
+# the rewind/staging noise can match your own keyword and the action grades Logged on teardown.
+# Share of Picus's own actions in each module that carry the guard (31,356-action scan).
+AND_NOT_SHARE = {
+    "Endpoint Scenario": "1197/1537 = 78%",
+    "Linux Endpoint Scenario": "284/330 = 86%",
+    "Kubernetes Endpoint Scenario": "136/168 = 81%",
+    "macOS Endpoint Scenario": "212/217 = 98%",
+}
+KEYWORD_GUARD_TEXT = {
+    "Endpoint Scenario":
+        'AND NOT ("PICUS_REWIND" OR ("File created:" AND ("Scenarios" OR "Simulation")))',
+    "Linux Endpoint Scenario":
+        'AND NOT ("pkill" OR "killall" OR ("rm" AND "-rf"))',
+    "Kubernetes Endpoint Scenario":
+        'AND NOT ("pkill" OR "killall" OR ("rm" AND "-rf"))',
+    "macOS Endpoint Scenario":
+        'AND NOT (("rm" AND " -rf") OR "com.apple.quarantine" OR "PICUS_REWIND")',
+}
 
 
 def check_process_path(pr: dict, mod: str, rep: "Report", where: str, label: str) -> None:
     """Enforce the per-OS `path` shape.
 
-    Measured over 1,909 predefined Endpoint-family actions: Windows uses a bare exe
-    name in 1958/1976 processes (99.1%); Linux/macOS/Kubernetes use a single-space
-    placeholder in 94-97% and put the whole shell command in `arguments`.
+    Measured over all 3,704 processes in Picus's 2,252 predefined Endpoint-family
+    actions: Windows uses a bare exe name in 1902/2508 (75.8%), an environment-variable
+    path for a payload it dropped in 583/2508 (23.2%, almost all `%TMP%\\tool.exe`), a
+    `{predefined-*}` pseudo-process in 441/2508, and an absolute path in only 23 -- every
+    one of which is a binary not reachable by name. Linux/macOS/Kubernetes use a
+    single-space placeholder in 94-97% and put the whole shell command in `arguments`.
 
     Verified failure mode (agent 3.0.2.0, 2026-10-27): an absolute Windows `path` makes
     the agent report BOTH path and arguments empty -- the run still says COMPLETED but
@@ -191,15 +233,33 @@ def check_process_path(pr: dict, mod: str, rep: "Report", where: str, label: str
     path = pr.get("path")
     if path is None:
         return
+    tok = _PREDEFINED.match(str(path).strip())
+    if tok:
+        if tok.group(0) not in PREDEFINED_TOKENS:
+            rep.err(where, f"{label}.path {path!r} is not one of Picus's pseudo-processes: "
+                           + ", ".join(sorted(PREDEFINED_TOKENS)))
+        elif mod != WINDOWS_ENDPOINT:
+            rep.warn(where, f"{label}.path {path!r} is a Windows-only pseudo-process; it does "
+                            f"not appear in any predefined {mod} action.")
+        elif tok.group(0) == "{predefined-process-sleep}":
+            if not str(pr.get("arguments") or "").strip().isdigit():
+                rep.err(where, f"{label} is a sleep pseudo-process, so `arguments` must be the "
+                               f"number of seconds as a quoted string (e.g. \"5\"); got "
+                               f"{pr.get('arguments')!r}.")
+        return
     if mod == WINDOWS_ENDPOINT:
+        if _ENV_WIN.match(str(path)):
+            return          # '%TMP%\tool.exe' -- the house form for a dropped payload
         if _ABS_WIN.match(str(path)):
             rep.err(where, f"{label}.path {path!r} is an absolute path. The Windows agent "
                            f"sends an empty path AND empty arguments for these, so the "
                            f"action silently does nothing (run shows completion_ratio 0, "
                            f"prevention 'not tested', command ' '). Use the bare exe name "
-                           f"({re.split(r'[\\/]', str(path))[-1]!r}); for a dropped "
-                           f"payload use `path: cmd.exe` with the file referenced from "
-                           f"`arguments` as '%TMP%\\<name>'.")
+                           f"({re.split(r'[\\/]', str(path))[-1]!r}) when the binary is on "
+                           f"PATH, or '%TMP%\\<name>' when this action dropped it. Picus writes "
+                           f"an absolute path only for a binary that is NOT reachable by name "
+                           f"(e.g. ...\\Framework64\\v4.0.30319\\MSBuild.exe) -- if that is "
+                           f"the case here, say so in `comment` and ignore this.")
         elif str(path).strip() == "":
             rep.err(where, f"{label}.path is blank. `path: ' '` is the Linux/macOS/K8s "
                            f"form; on Windows the command never runs. Use a bare exe name "
@@ -251,12 +311,15 @@ def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
     crc = c.get("result_condition")
     if crc:
         if len(_terms(crc)) != len(objs):
-            rep.err(where, f"campaign result_condition has {len(_terms(crc))} Terms but "
-                           f"{len(objs)} objectives — equal in 20/20 real Picus threats")
+            rep.warn(where, f"campaign result_condition has {len(_terms(crc))} Terms but "
+                            f"{len(objs)} objectives. Equal in 17/18 real Picus threats, so this "
+                            f"is almost certainly a miscount — but Picus's own Palestinian "
+                            f"Targeting Cyber Espionage Campaign does it too, so it imports.")
         want = JOIN.get(mod)
         if want and _op(crc) and _op(crc) != want:
-            rep.warn(where, f"campaign join operator is {_op(crc)!r}; Picus uses "
-                            f"{want!r} for {mod}")
+            rep.warn(where, f"campaign join operator is {_op(crc)!r}; Picus uses {want!r} for "
+                            f"{mod} in the majority of its threats (Endpoint Scenario 3/4) — "
+                            f"both import, so this is a style check, not a blocker")
         for r in _refs(crc):
             m = re.match(r"^%objective-(\d+)%$", r)
             if not m:
@@ -285,7 +348,7 @@ def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
                             f"a term would reference an action that does not exist")
             elif nt < len(acts):
                 rep.warn(ow, f"result_condition covers {nt} of {len(acts)} actions; Picus "
-                             f"usually lists them all (119/120 real objectives)")
+                             f"usually lists them all (148/151 real objectives)")
             for r in _refs(orc):
                 m = re.match(r"^%action-(\d+)%$", r)
                 if not m:
@@ -402,6 +465,18 @@ def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
                     rep.err(aw, f"affected_platforms entry {pair} is not a Picus platform "
                                 f"(see references/vocab-platforms.md)")
 
+            # fields the skill once emitted that Picus has never had
+            for fld in NOT_PICUS_ACTION_FIELDS:
+                if fld in a:
+                    rep.warn(aw, f"`{fld}` belongs to Picus's internal UI action model (the "
+                                 f"/api/v2/ui edit payload carries it, defaulting to false), "
+                                 f"not to authored threat YAML: 0 occurrences across 31,356 "
+                                 f"predefined actions and 18 exported vendor threats. Import "
+                                 f"accepts it and ignores it. A lateral-movement action gets "
+                                 f"its peer and credentials from the %REMOTEIP% / "
+                                 f"%REMOTEHOSTNAME% / %REMOTEDOMAIN% / %REMOTEUSERNAME% / "
+                                 f"%REMOTEPASSWORD% variables in `arguments` instead.")
+
             # keyword_queries — plain strings in YAML
             kqs = a.get("keyword_queries")
             if not kqs:
@@ -432,8 +507,11 @@ def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
                     if has_not and mod in AND_NOT_NEVER:
                         rep.warn(aw, f"has an `AND NOT` filter, but Picus uses none for {mod} (0%)")
                     if not has_not and mod in AND_NOT_EXPECTED:
-                        rep.warn(aw, f"no `AND NOT` noise filter; Picus adds one for {mod} "
-                                     f"(78-100% of its actions)")
+                        rep.warn(aw, f"no `AND NOT` noise filter. Picus adds one to "
+                                     f"{AND_NOT_SHARE.get(mod, '78-98%')} of its {mod} actions so "
+                                     f"the rewind/staging noise cannot match the attack keyword "
+                                     f"— it is the house default, not a hard rule. Append: "
+                                     f"{KEYWORD_GUARD_TEXT.get(mod, '')}")
 
             # remote_files placement + payload naming
             arf = a.get("remote_files") or []
@@ -483,7 +561,12 @@ def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
                         # are case-insensitive and Picus's own casing is inconsistent
                         # (BlackMatter drops `ChaCha20_enc.exe`, runs `Chacha20_enc.exe`).
                         leaf = re.split(r"[\\/]", dp)[-1].lower()
-                        if leaf and leaf not in blob:
+                        # A non-executable companion is normally meant to be unreferenced:
+                        # a side-loaded DLL, an encrypted blob, a data file the payload
+                        # reads. Measured over Picus's own threats, every one of the 13
+                        # unreferenced drops is such a companion (.b64 7, .dll 2, .dat,
+                        # .tmp, .bin, .txt) and not one is an executable.
+                        if leaf and leaf not in blob and leaf.endswith(EXECUTABLE_DROP_EXTS):
                             # Legitimate pattern: a payload delivered and *registered*
                             # for later loading rather than executed here — e.g. an SSP
                             # DLL dropped into System32 then added to Security Packages
@@ -498,10 +581,12 @@ def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
                             rep.err(aw, f"play_processes[{pi}].success_conditions entry is "
                                         f"{type(sc).__name__}, expected a mapping")
                         elif not sc:
-                            # Picus itself emits an empty entry (2 cases in
-                            # BlackMatter Ransomware Campaign) — unusual, not invalid.
+                            # Picus's own threats do this in 6/83 success_conditions
+                            # entries — an "always passes" no-op, unusual but valid.
                             rep.warn(aw, f"play_processes[{pi}].success_conditions has an empty "
-                                         f"entry; the process will have no success check")
+                                         f"entry, so that process has no success check. Picus "
+                                         f"itself does this in 6/83 entries; intentional only "
+                                         f"when another process does the grading.")
                         elif isinstance(sc.get("output"), str) and not sc["output"].strip():
                             rep.err(aw, f"play_processes[{pi}].success_conditions `output` is "
                                         f"blank — the check would pass unconditionally")
@@ -519,7 +604,9 @@ def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
                         rep.err(aw, f"result_condition has {nt} Terms but only {npr} processes")
                     elif nt < npr:
                         rep.warn(aw, f"result_condition covers {nt} of {npr} processes; Picus "
-                                     f"usually lists them all (61/64 real actions)")
+                                     f"usually lists them all (78/87 real actions); grading "
+                                     f"on a single verification process is the documented "
+                                     f"exception")
                     for r in _refs(arc):
                         m = re.match(r"^%process-(\d+)%$", r)
                         if not m:

@@ -14,16 +14,16 @@
 |---|---|---|
 | `module` | `Data Exfiltration` (literal) | campaign-level |
 | `severity` | `High` | only severity seen |
-| `affected_os` | `[Windows, macOS, Linux]` (all three) | always |
+| `affected_os` | `[Windows, macOS, Linux]` (all three) | 238/238 predefined actions |
 | `is_atomic` | `true` | always |
 | `ukc_phase` | `Exfiltration` | always |
-| `category` | `Data Exfiltration` | always literal |
+| `category` | `Data Exfiltration` | always literal — 238/238 |
 | `title` (action) | `Exfiltration` | always literal |
 | `comment` | `auto-migrated` | always literal — the literal string `auto-migrated` |
 | `is_applicable_to_all_platforms` | `true` | always |
 | `country` | string | see Country table |
 | `data_type` | string | see Data Type table |
-| `remote_files` | one entry | PDF sample |
+| `remote_files` | one entry | the document sample — 59 formats in use, not only PDF |
 | `keyword_queries` | one entry | see canonical template below |
 
 **Goal of a Data Exfiltration threat:** simulate uploading a sensitive document to an external server and verify that the security control (DLP / file-upload filter / sandbox) detects and blocks it. **"unblocked" = the data leaked** (FAIL — bad); "blocked" = the control stopped it (PASS).
@@ -97,7 +97,7 @@ campaign:
 | `category` | string | yes | `Data Exfiltration` |
 | `is_applicable_to_all_platforms` | bool | yes | `true` |
 | `keyword_queries` | list[string] | yes | one entry — see canonical template below |
-| `remote_files` | list[object] | yes | one PDF entry — `file` (base64), `path` (numeric_id.pdf), `is_downloaded: true` |
+| `remote_files` | list[object] | yes | one entry — `file` (base64), `path` (`<display_id>.<ext>`), `is_downloaded: true` |
 
 **Notably absent** (vs. Endpoint/File Download):
 
@@ -222,15 +222,20 @@ keyword_queries:
         OR
         (("<SHA-256>" OR "<SHA-1>" OR "<MD5>")
          OR
-         ("<NUMERIC_ID>" AND "pdf")))
+         ("<DISPLAY_ID>" AND "<ext>")))
        AND NOT ("picexfil" AND "short-url"))
 ```
 
 Three arms (top-level OR'd):
 
 1. **Picus-internal act_id arm:** `("act_id" AND "<5-digit-id>") OR "-<id>-" OR "|<id>|"` — covers different ways the Picus backend tags the action in logs.
-2. **Hash arm:** SHA-256 / SHA-1 / MD5 of the PDF, in that exact order.
-3. **Filename-and-ext arm:** numeric ID followed by `AND "pdf"`. Redundant with the hash arm, but covers detectors that key on the numeric ID + extension co-occurrence.
+2. **Hash arm:** **SHA-1, then SHA-256, then MD5** — 238/238 predefined actions. Note this is
+   *not* the File Download / Email order (those are SHA-256, SHA-1, MD5). Data Exfiltration is
+   the one module that leads with SHA-1.
+3. **Filename-and-ext arm:** the action's **`display_id`** (223/225 — not the internal `act_id`
+   used in arm 1) followed by `AND "<the file's real extension>"`. 59 distinct extensions are in
+   use, `pdf` being only the most common (21/238): `xlsx` 18, `txt` 16, `csv` 14, `docx` 13,
+   `xml`/`json`/`doc` 10 each, down to source-code and media formats.
 
 Wrapped in **`AND NOT ("picexfil" AND "short-url")`** — this is the Data-Exfiltration-specific noise filter. `picexfil` is the Picus-internal exfil-vector token; `short-url` is a common evasion (URL shortener) that Picus telemetry picks up. Filtering both prevents false positives from the simulation infrastructure itself.
 

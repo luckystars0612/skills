@@ -2,6 +2,22 @@
 
 `module: Azure Cloud Emulation` / `AWS Cloud Emulation` / `GCP Cloud Emulation`
 
+> ## ⚠ Not available on this platform — unverified
+>
+> Probing attack module ids 1-16 on the on-prem platform (2026-10-27) found **nine** modules
+> and **no Cloud Emulation module** (ids 8 and 11-16 return 0 threats). So nothing in this
+> file has been checked against a real threat, and `module: AWS Cloud Emulation` /
+> `Azure Cloud Emulation` / `GCP Cloud Emulation` **will not import here**.
+>
+> **Author cloud scenarios as `Linux Endpoint Scenario` actions that call the cloud API**
+> instead — that is how the only working cloud threat in this workspace
+> (`bas_fp100/05_aws_mfa_disabled`, an AWS SigV4 call from a Linux agent) is built. Follow
+> [endpoint.md](endpoint.md) for its shape.
+>
+> Keep reading only if a future platform/licence actually exposes a Cloud Emulation module;
+> treat every field below as a hypothesis to re-verify with
+> `GET /v1/threat-library/threats/{id}/export` against a real one.
+>
 > **No canonical example is bundled for this module.** This reference is
 > compiled from the bundled template doc and Picus module vocabulary. Cloud Emulation
 > differs from Endpoint modules in that the execution primitive is `steps:` (not

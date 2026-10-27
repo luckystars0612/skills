@@ -26,7 +26,7 @@
 | `ukc_phase` | `Exploitation` | always |
 | `category` | `Web Application` | always literal |
 | `title` (action) | `Exploitation` | always literal |
-| `keyword_queries` | one entry, single parenthesized Picus page id | NOT hash-based |
+| `keyword_queries` | one entry, single parenthesized Picus page id | NOT hash-based — `("page<display_id>")`, verified 2646/2646 |
 | `request_content` | one path inside the ZIP | one `.req` file per action |
 
 **Goal of a Web Application threat:** simulate a single HTTP request against a web application. The control surface being tested is the WAF / IPS — not the application itself. **"unblocked" = the WAF let the request through** (PASS); "blocked" = the WAF stopped it (FAIL).
@@ -97,9 +97,9 @@ campaign:
 | `affected_os` | list | yes | action-level — can be narrower than campaign |
 | `affected_product` *or* `affected_products` | string / list | optional | `Microsoft SharePoint`, `Dynamic Web Applications` |
 | `affected_versions` | list | optional | `Microsoft .NET Framework 2.0 - 4.7.2, SharePoint Server 2010 - 2016` |
-| `cve` | string | optional | `CVE-2021-31181` |
-| `cwe` | string | optional | `CWE-79`, `CWE-94`, `CWE-502`, … |
-| `owasp` | string | optional | `Injection`, `Software and Data Integrity Failures`, `Cryptographic Failures` |
+| `cve` | string | optional | `CVE-2021-31181` — set on 1012/2646 predefined actions (38%) |
+| `cwe` | string | **effectively required** | `CWE-79`, `CWE-94`, `CWE-502`, … — set on 2591/2646 (97.9%) |
+| `owasp` | string | **effectively required** | `Injection`, `Software and Data Integrity Failures`, … — set on 2625/2646 (99.2%) |
 | `use_case` | string | optional | `WebServer Attack - XSS`, `WebServer Attack - RCE`, `Known Vulnerability`, … |
 | `is_atomic` | bool | yes | `true` |
 | `ukc_phase` | string | yes | `Exploitation` |
@@ -115,7 +115,9 @@ campaign:
 - No `play_processes` / `rewind_processes` (no process tree)
 - No `success_conditions` (no process output)
 - No `remote_files` (the request itself is the attack)
-- No `tactic` / `technique` (MITRE absent — CVE/CWE used instead)
+- No `tactic` / `technique` (MITRE absent — CVE/CWE used instead). Verified: the actions API
+  returns **no `frameworks` block on any of the 2,646** predefined Web Application actions, so
+  there is no MITRE mapping to copy. `ukc_phase: Exploitation` is this module's phase.
 - No action-level `result_condition` (objective-level only)
 
 ---

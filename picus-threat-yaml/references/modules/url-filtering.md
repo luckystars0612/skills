@@ -2,9 +2,15 @@
 
 `module: URL Filtering`
 
-> **No canonical example is bundled for this module.** This reference is
-> compiled from the Picus module vocabulary and the bundled template doc. For exact
-> keyword-queries syntax, cross-check a fresh export from Picus SCV when available.
+> **Verified against all 1,531 predefined URL Filtering actions** on the on-prem platform
+> (`GET /v1/threat-library/actions`, attack module id 9, 2026-10-27). The three facts worth
+> knowing up front:
+>
+> 1. `keyword_queries` is **one bare hostname and nothing else** — `("notebooklm.google.com")`.
+>    1531/1531. No `OR`, no path fragment, no hash.
+> 2. The action `name` **is the URL** — `https://notebooklm.google.com`. 1531/1531.
+> 3. `module_based_details` comes back **empty** (`{}`) for every action: the URL lives in the
+>    authored `filter_url` field, which the actions API does not expose.
 
 ---
 
@@ -14,10 +20,10 @@
 |---|---|---|
 | `module` | `URL Filtering` (literal) | campaign-level |
 | `severity` | `High` | only severity seen |
-| `affected_os` | usually **absent** | only 26/1016 real URL Filtering actions set it |
+| `affected_os` | usually **absent** | set on only 29/1531 actions (98.1% omit it); when present it is all three OS |
 | `is_atomic` | `true` | always |
 | `ukc_phase` | `Command & Control`, `Exfiltration` | varies |
-| `category` | `URL Filtering` | always literal |
+| `category` | `URL Filtering` | always literal — 1531/1531 |
 | `title` (action) | `URL Visit` | common form |
 | `filter_url` | string | the URL the action will request |
 | `url_category` | string | Picus URL category bucket |
@@ -61,17 +67,17 @@ campaign:
 
 | Field | Type | Required | Example |
 |---|---|---|---|
-| `name` | string | yes | `URL Filtering - Phishing URL Variant-1` |
+| `name` | string | yes | **the URL itself** — `https://notebooklm.google.com` (1531/1531) |
 | `title` | string | yes | `URL Visit` |
 | `description` | string | yes | short description |
 | `comment` | string | optional | `auto-migrated` |
-| `affected_os` | list | **no** | omitted on 990/1016 Picus actions — leave it out |
+| `affected_os` | list | **no** | omitted on 1502/1531 Picus actions — leave it out |
 | `is_atomic` | bool | yes | `true` |
 | `ukc_phase` | string | yes | `Command & Control` / `Exfiltration` |
 | `category` | string | yes | `URL Filtering` |
 | `filter_url` | string | yes | `https://example.com/malicious-path` |
 | `url_category` | string | yes | see vocabulary below |
-| `keyword_queries` | list[string] | yes | one entry, OR'd over URL fragments |
+| `keyword_queries` | list[string] | yes | one entry, the bare hostname: `("notebooklm.google.com")` |
 
 **No `remote_files`, `play_processes`, `rewind_processes`, MITRE fields.**
 
@@ -99,7 +105,7 @@ hash form (no payload).
 
 ```yaml
 keyword_queries:
-    - ("<hostname>" OR "<hostname>" AND "<path-fragment>")
+    - ("<hostname>")                 # exactly this — 1531/1531 predefined actions
 ```
 
 Concrete example:

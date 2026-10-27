@@ -26,9 +26,47 @@ GET /v1/threat-library/threats?is_predefined=true&attack_module_ids=2&limit=100
 GET /v1/threat-library/threats/{ThreatId}/export
 ```
 
-Attack module ids: `1` File Download, `2` Endpoint Scenario (Windows), `3` Web Application,
-`4` Email, `5` Data Exfiltration, `6` Linux Endpoint Scenario, `7` macOS Endpoint Scenario,
-`9` URL Filtering, `10` Kubernetes Endpoint Scenario.
+Pagination is **`offset`**, not `page` — `?limit=100&offset=200`. `limit` is capped at 100 and
+`limit=500` silently returns 0 rows. `search=`, `attack_module_id=` and `is_predefined=` are
+accepted but **ignored** on `/v1/threat-library/threats`; to find a threat that uses a given
+action, page through with `offset` and match `flows[].actions[].id` yourself.
+
+A predefined threat's export is an **AES zip, password `picus`** — the same password you package
+with. Extract it with `7z x -p"picus"`; inside are `threat.yaml` and `files/`.
+
+### The API and the YAML are authoritative for different things
+
+| Authoritative source | Fields |
+|---|---|
+| `GET .../actions/{id}` | `module_based_details` (paths, arguments, file hashes), `frameworks.mitre`, `frameworks.ukc`, `attack_category`, `affected_os`, `keyword_queries`, `owasp`/`cwe`/`cve` |
+| a threat **export** (`threat.yaml`) | everything you actually author: `ukc_phase`, `category`, `title`, `is_atomic`, `is_privileged`, `comment`, `result_condition`, `success_conditions`, `remote_files`, `rewind_processes`, `affected_platforms` |
+
+Do not conclude a field is unused because the actions API omits it. The API returns no
+`frameworks` block at all for File Download, Email, Web Application and URL Filtering, yet their
+authored YAML still carries `ukc_phase` and `category` on every action.
+
+### Module census
+
+Probed ids 1-16 on 2026-10-27; **only these nine exist**, and the threat counts are what the
+library actually holds (predefined + custom):
+
+| id | `module:` value | threats |
+|---|---|---|
+| 1 | `File Download` | 3619 |
+| 2 | `Endpoint Scenario` (Windows) | 267 |
+| 3 | `Web Application` | 430 |
+| 4 | `Email` | 3231 |
+| 5 | `Data Exfiltration` | 68 |
+| 6 | `Linux Endpoint Scenario` | 84 |
+| 7 | `macOS Endpoint Scenario` | 44 |
+| 9 | `URL Filtering` | 38 |
+| 10 | `Kubernetes Endpoint Scenario` | 13 |
+
+Ids `8` and `11`-`16` return 0 threats. **There is no Cloud Emulation attack module on this
+platform** — so `module: AWS Cloud Emulation` (and the Azure/GCP variants) cannot be imported
+here, and `references/modules/cloud-emulation.md` is unverified against any real threat. Cloud
+scenarios in this environment are authored as `Linux Endpoint Scenario` actions that call the
+cloud API (that is how `bas_fp100/05_aws_mfa_disabled` is built).
 
 `limit` is capped at **100** on the threat/action list endpoints (`limit=200` -> HTTP 422).
 
@@ -36,21 +74,28 @@ Attack module ids: `1` File Download, `2` Endpoint Scenario (Windows), `3` Web A
 
 ## 2. `play_processes[].path` — OS-specific, and silent when wrong
 
+Measured over all 3,704 processes in the 2,252 predefined Endpoint-family actions:
+
 | Module | Picus writes | Share |
 |---|---|---|
-| `Endpoint Scenario` (Windows) | bare exe name — `reg.exe`, `cmd.exe`, `schtasks.exe` | 1958/1976 = **99.1%** |
-| `Linux Endpoint Scenario` | **no `path` key at all**, command in `arguments` | 604/622 = **97%** |
-| `macOS Endpoint Scenario` | same | 292/301 = **97%** |
-| `Kubernetes Endpoint Scenario` | same | 251/267 = **94%** |
+| `Endpoint Scenario` (Windows) | bare exe name — `reg.exe`, `cmd.exe`, `schtasks.exe` | 1902/2508 = **75.8%** |
+| `Endpoint Scenario` (Windows) | `%TMP%\<dropped>.exe` — the payload it just dropped | 583/2508 = **23.2%** |
+| `Endpoint Scenario` (Windows) | `{predefined-*}` pseudo-process (see `modules/endpoint.md`) | 441/2508 = **17.6%** of which a subset overlaps the rows above |
+| `Linux Endpoint Scenario` | **no `path` key at all**, command in `arguments` | 604/628 = **96.2%** |
+| `macOS Endpoint Scenario` | same | 292/301 = **97.0%** |
+| `Kubernetes Endpoint Scenario` | same | 251/267 = **94.0%** |
 
 The API reports a stored empty path as `" "`; in authored YAML the key is simply absent. Picus's
 own exported Unix threats confirm it — the bundled Kubernetes C2 plan has 68 `- arguments:`-only
 processes against 1 with a `path`, the macOS Realst campaign 8 against 3, and neither contains a
 literal `path: ' '`. `path: ' '` is accepted and normalises to the same thing.
 
-The remaining few percent are absolute paths, used only for a single bare binary with no shell
-syntax (`/bin/ps aux`, `C:\Windows\System32\mmc.exe WF.msc`). Don't copy that; it is the
-exception, and on an older Windows agent it breaks (§6).
+Absolute paths are 23/2508 on Windows and 3.5-5.2% on Unix. On Windows every one of the 23 is a
+binary that is **not reachable by name** (`...\Framework64\v4.0.30319\MSBuild.exe`,
+`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`) or a drop outside `%TMP%`.
+Only 3 name something already on `PATH`. Never write an absolute path for a binary on `PATH`:
+`C:\Windows\System32\reg.exe` measured `not tested` / `command = " "` / no output on agent
+3.0.2.0, where bare `reg.exe` gave 100% and real output in the same minute (§6).
 
 ### `arguments` shell semantics differ
 
@@ -63,21 +108,22 @@ exception, and on an older Windows agent it breaks (§6).
   `arguments: LFILE=/etc/shadow; awk '//' "$LFILE"` and
   `arguments: for f in $(find / -type f -path '*/etc/passwd' …); do … done`.
 
-### A dropped payload never goes in `path` — on Windows
+### A dropped payload goes directly in `path`
 
-Picus delivers with `remote_files` and executes through an interpreter, referring to the file by
-its destination. On Unix the rule is softer: Picus does sometimes name a dropped file directly
-in `path` (`- path: /tmp/hack-browser-data`, Realst campaign), but invoking it from `arguments`
-is more common.
+On Windows the dropped file **is** the `path`, with its `remote_files` nested in the same
+process — 575 of 2508 processes. Reach for `cmd.exe /c` only when the invocation needs shell
+syntax (a pipe, `&&`, a redirect, an inner quoted command). On Unix either form is used; naming
+it in `arguments` is the more common.
+
+The `files/` entry name is **base64 of `<basename>___<uuid>.<ext>`**, and the `path:` beside it
+is where the agent writes the file.
 
 ```yaml
-# Windows
-- path: cmd.exe
-  arguments: /c "%TMP%\tool.exe" -n MsMpEng.exe -k
+# Windows — the vendor's own form (TIDrone campaign, threat 138)
+- path: '%TMP%\tool.exe'
   remote_files:
-    - file: files/<base64 blob>
+    - file: files/<base64 of tool___<uuid>.exe>
       path: '%TMP%\tool.exe'
-      is_executable: true
       is_downloaded: true
 
 # Linux / macOS / Kubernetes — no `path` key
@@ -89,9 +135,14 @@ is more common.
       is_downloaded: true
 ```
 
-Platform-injected variables: **`%TMP%`** (Windows), **`"$WORKDIR"`** (Unix family, always
-quoted), and **`$remotefile<digits>`** / **`%remotefile-<digits>%`** — a URL placeholder Picus
-injects for downloader-style `T1105` actions.
+Platform-injected variables: **`%TMP%`** (Windows, 1580 uses), **`"$WORKDIR"`** (Unix family,
+617, always quoted), **`$remotefile<digits>`** / **`%remotefile-<digits>%`** — a URL placeholder
+for downloader-style `T1105` actions, never valid in `path` — and, for
+`category: Lateral Movement Techniques` only, the peer-host set **`%REMOTEIP%`,
+`%REMOTEHOSTNAME%`, `%REMOTEDOMAIN%`, `%REMOTEUSERNAME%`, `%REMOTEPASSWORD%`**, which the
+platform fills from the agent pair chosen for the simulation. `is_remote:` and `needs_creds:`
+exist only in Picus's internal UI action payload, never in authored YAML — 0 occurrences in
+31,356 actions and 18 exported threats. Import accepts and ignores them.
 
 ---
 
@@ -191,13 +242,53 @@ actually did something.
 
 ---
 
-## 7. Checklist before shipping a custom threat
+## 7. `keyword_queries` — one template per module, plus a mandatory OS guard
+
+The detection keyword is what makes an action *Logged*. Measured 31,356/31,356 predefined actions
+carry exactly one `Default` query. The template is module-specific:
+
+| Module | Template (from a real action) |
+|---|---|
+| `File Download` | `(("<sha256>" OR "<sha1>" OR "<md5>") OR ("<md5>" AND "<ext>"))` |
+| `Email` | `(("<display_id>" AND ("Attachment" OR "URL")) OR (("<sha256>" OR "<sha1>" OR "<md5>") OR ("<md5>" AND "<ext>")))` |
+| `Data Exfiltration` | `(((("act_id" AND "<action_id>") OR "-<action_id>-" OR "\|<action_id>\|") OR (("<sha1>" OR "<sha256>" OR "<md5>") OR ("<display_id>" AND "<ext>"))) AND NOT ("picexfil" AND "short-url"))` |
+| `Web Application` | `("page<display_id>")` — nothing else |
+| `URL Filtering` | `("<hostname>")` — the bare host, e.g. `("notebooklm.google.com")` |
+| `Endpoint` (all 4) | command-shape terms ANDed together, then the OS guard below |
+
+Endpoint queries name the distinctive tokens of the command, not the whole command:
+
+```
+("schtasks" AND "/create" AND ("GoogleCrash.exe" OR "Chrome")) AND (("\schtasks.exe" AND " /create ") AND ("AppData" OR "Public" OR "C:\Windows\Temp"))
+(("LFILE" AND "etc" AND "shadow") OR "awk")
+```
+
+**Most endpoint queries end with an OS-specific `AND NOT` guard** that suppresses Picus's own
+cleanup and staging noise — Windows 1197/1537 (78%), Linux 284/330 (86%), Kubernetes 136/168
+(81%), macOS 212/217 (98%). It is the house default rather than a hard rule; Picus omits it on
+the rest. Copy it verbatim for the module you are targeting:
+
+| Module | Guard |
+|---|---|
+| `Endpoint Scenario` (Windows) | `AND NOT ("PICUS_REWIND" OR ("File created:" AND ("Scenarios" OR "Simulation")))` |
+| `Linux Endpoint Scenario`, `Kubernetes Endpoint Scenario` | `AND NOT ("pkill" OR "killall" OR ("rm" AND "-rf"))` |
+| `macOS Endpoint Scenario` | `AND NOT (("rm" AND " -rf") OR "com.apple.quarantine" OR "PICUS_REWIND")` |
+
+Without the guard the `rewind_processes` cleanup matches your own keyword and the action can
+grade Logged on the teardown instead of the attack.
+
+---
+
+## 8. Checklist before shipping a custom threat
 
 1. `python3 scripts/validate_threat.py <dir-or-yaml>` → 0 errors.
-2. Windows endpoint: every `play_processes[].path` a bare exe name; shell syntax wrapped in
-   `cmd.exe /c` / `powershell.exe -Command`.
+2. Windows endpoint: every `play_processes[].path` is a bare exe name, a `%TMP%\…` drop, or a
+   `{predefined-*}` token — never an absolute path to something on `PATH`. Shell syntax wrapped
+   in `cmd.exe /c` / `powershell.exe -Command`.
 3. Unix endpoint: `play_processes` entries carry **no `path` key** (or `' '`); command in `arguments`.
-4. Dropped files referenced from `arguments` via `%TMP%` / `"$WORKDIR"`, never in `path`.
+4. A dropped Windows payload sits in `path` as `%TMP%\tool.exe` with its `remote_files` nested in
+   the same process; on Unix run it from `arguments` via `"$WORKDIR"`.
+4b. `keyword_queries` carries the OS-specific `AND NOT` guard from §7.
 5. `technique` / `sub_technique` copied from a predefined action doing the same thing.
 6. All `comment` fields ≤ 255 chars.
 7. Import → create simulation → run → confirm `command` and `log_content` are non-empty.

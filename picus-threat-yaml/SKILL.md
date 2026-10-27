@@ -109,7 +109,7 @@ authoring.**
 | `Web Application` | [web-application.md](references/modules/web-application.md) | [Generic XSS Evasion Web Attack Campaign - 14](references/examples/Generic%20XSS%20Evasion%20Web%20Attack%20Campaign%20-%2014/threat.yaml) — see the doc for 5 more real packages (ThinkPHP, Auth Bypass, Java Deserialization, Encoded URI, SharePoint) |
 | `Data Exfiltration` | [data-exfiltration.md](references/modules/data-exfiltration.md) | [PDF Format Data Exfiltration Campaign](references/examples/PDF%20Format%20Data%20Exfiltration%20Campaign/threat.yaml) |
 | `URL Filtering` | [url-filtering.md](references/modules/url-filtering.md) | [Ai Services - 7](references/examples/Ai%20Services%20-%207/threat.yaml) — exported from the live library; `.yaml` only, no `files/` |
-| `Azure / AWS / GCP Cloud Emulation` | [cloud-emulation.md](references/modules/cloud-emulation.md) | no canonical example bundled — see doc for template |
+| `Azure / AWS / GCP Cloud Emulation` | [cloud-emulation.md](references/modules/cloud-emulation.md) | ⚠ **no such attack module on this platform** (probed ids 1-16, nine modules exist, none is Cloud Emulation) — these `module:` values will not import. Author cloud scenarios as `Linux Endpoint Scenario` actions calling the cloud API, as `bas_fp100/05_aws_mfa_disabled` does |
 
 **The skill author itself, not the auto-pipeline, is the source of truth for every
 module above.** The reference docs contain: field inventory with real values, canonical
@@ -366,19 +366,31 @@ doc for module-specific shape, keywords, or noise filters.**
 For every Endpoint-family module, `play_processes[].path` has an OS-specific shape. Getting it
 wrong does **not** fail the import: the threat loads fine, the run reports `COMPLETED`, and the
 action silently executes nothing (`completion_ratio: 0`, `prevention: "not tested"`,
-`command: " "`). Measured over 1,909 predefined Picus actions:
+`command: " "`). Measured over all 3,704 processes in Picus's 2,252 predefined Endpoint actions:
 
 | Module | Correct `path` | Share in Picus's own library |
 |---|---|---|
-| `Endpoint Scenario` (Windows) | **bare exe name** — `reg.exe`, `cmd.exe`, `powershell.exe` | 1958/1976 = 99.1% |
+| `Endpoint Scenario` (Windows) | **bare exe name** for anything on `PATH` — `reg.exe`, `cmd.exe`, `powershell.exe` | 1902/2508 = 75.8% |
+| `Endpoint Scenario` (Windows) | **`%TMP%\tool.exe`** for a payload this action dropped | 583/2508 = 23.2% |
+| `Endpoint Scenario` (Windows) | **`{predefined-*}`** pseudo-process (sleep / watch / kill / delete) | 441/2508 |
 | `Linux` / `macOS` / `Kubernetes Endpoint Scenario` | **omit `path`** entirely, whole command in `arguments` | 94–97% |
 
+An absolute Windows path is right only for a binary that is **not reachable by name**
+(`...\Framework64\v4.0.30319\MSBuild.exe`, `C:\Program Files\...\msedge.exe`) — 23 of 2508,
+and only 3 of those name something already on `PATH`.
+
 ```yaml
-# Windows — arguments are NOT shell-evaluated; wrap anything with & | > %VAR% in an interpreter
+# Windows — arguments are NOT shell-evaluated; wrap & | > or an inner quoted command in an interpreter
 - path: reg.exe
   arguments: add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v DisableAntiVirus /t REG_DWORD /d 1 /f
-- path: cmd.exe
-  arguments: /c "%TMP%\tool.exe" --flag        # dropped payload: never in `path`
+- path: '%TMP%\tool.exe'                      # a dropped payload IS the path
+  arguments: --flag
+  remote_files:
+    - file: files/<base64 of tool___<uuid>.exe>
+      path: '%TMP%\tool.exe'
+      is_downloaded: true
+- path: '{predefined-process-sleep}'           # Picus's built-in helper steps
+  arguments: "5"
 
 # Linux / macOS / Kubernetes — no `path` key; arguments ARE shell-evaluated
 - arguments: bash -c 'cp /tmp/stager /dev/shm/stager; chmod +x /dev/shm/stager; /dev/shm/stager'
@@ -697,7 +709,12 @@ what it checks, plus the few judgement calls it cannot make:
 | `400 — missing threat.yaml` | `threat.yaml` not at root of the inner folder | Check ZIP structure — must be `<name>/threat.yaml` |
 | `400 — invalid YAML` | Syntax error or missing required field | Check indentation, required fields (`name`, `module`, `objectives`, `actions`) |
 | `File not found in archive` | `remote_files.file` path doesn't match | Ensure `file: files/payload.bin` matches actual ZIP path |
-| Action `not tested`, `completion_ratio: 0`, `command: " "` in the run result | absolute `path` in a Windows `play_processes` entry — agent returns empty path *and* arguments | use the bare exe name (`reg.exe`); see Process `path` above. The rewind still runs, so it looks like an EDR block |
+| Action `not tested`, `completion_ratio: 0`, `command: " "` in the run result | absolute `path` in a Windows `play_processes` entry — agent returns empty path *and* arguments | use the bare exe name (`reg.exe`), or `%TMP%\tool.exe` for a payload you dropped; see Process `path` above. The rewind still runs, so it looks like an EDR block |
+| Dropped Windows payload never executes | wrapped in `cmd.exe /c` when nothing needed a shell, or `remote_files` put at action level instead of inside the process | put the drop in `path` as `%TMP%\tool.exe` with its `remote_files` nested in the same process |
+| `{predefined-process-sleep}` step does nothing | `arguments` written as a bare number (`5`) instead of a quoted string (`"5"`) | quote it; Picus writes `arguments: "5"` in all 33 of its own sleep steps |
+| Lateral-movement action runs against nothing | hardcoded peer host/credentials, or `is_remote`/`needs_creds` authored in the YAML | use `%REMOTEIP%` / `%REMOTEHOSTNAME%` / `%REMOTEDOMAIN%` / `%REMOTEUSERNAME%` / `%REMOTEPASSWORD%` in `arguments`; those two fields are UI-API-only and are ignored on import |
+| Endpoint action grades Logged on the cleanup, not the attack | `keyword_queries` has no `AND NOT` guard | append the module's guard — Windows `AND NOT ("PICUS_REWIND" OR ("File created:" AND ("Scenarios" OR "Simulation")))`; see `references/picus-house-style.md` §7 |
+| `GET /threats?page=2` returns page 1 again | pagination is `offset`, and `search`/`attack_module_id` are ignored on that endpoint | `?limit=100&offset=100`; `limit>100` silently returns 0 rows |
 | Windows action never runs although `arguments` look right | `path` omitted or `' '` (the Unix form) used on `Endpoint Scenario` | Windows needs a real bare exe name in `path` |
 | `400 — 'T1562' is not valid` (whole pack refused) | Picus has no `T1562` family | tactic `TA0112` + `T1685` / `T1685.001` / `T1685.005` / `T1686` / `T1688` / `T1689` — see `references/accepted-values.md` |
 | `400 — exceeds max length (N > 255)` on `comment` | campaign/action `comment` over 255 chars | trim to ≤255; older imports silently truncated instead of failing |

@@ -78,8 +78,11 @@ one of the categories allowed for that module.
 > minority of actions, almost always to `Delivery`.
 
 > `technique` and `sub_technique` use **Picus's own catalog, which is MITRE ATT&CK plus
-> Picus-specific entries — it is NOT interchangeable with MITRE.** Harvested from 1,909
-> predefined actions (2026-10-27): 133 technique ids, 159 sub-technique ids. Most are genuine
+> Picus-specific entries — it is NOT interchangeable with MITRE.** Harvested from **31,356
+> predefined actions across all 9 attack modules** (2026-10-27): **144 technique ids, 181
+> sub-technique ids** (`scripts/vocab.json`). Only the four Endpoint-family modules populate
+> MITRE at all — File Download, Email, Web Application and URL Filtering return no `frameworks`
+> block on a single one of their 28,866 actions. Most are genuine
 > MITRE (`T1059`, `T1003`, `T1112`, …), but Picus **replaced MITRE's `T1562` (Impair Defenses)
 > family** with its own tactic `TA0112` (Defense Impairment) and promoted the sub-techniques to
 > top level:
@@ -109,6 +112,19 @@ one of the categories allowed for that module.
 ## UKC Phases
 
 Used in the `ukc_phase` field on actions.
+
+Each phase maps to exactly **one** UKC `stage` — measured over the 2,257 actions that carry a
+`frameworks.ukc` block, with no exceptions:
+
+| `stage` | `ukc_phase` values | n |
+|---|---|---|
+| `Initial Foothold` | `Defense Evasion` 740 · `Persistence` 193 · `Command & Control` 99 · `Delivery` 63 | 1095 |
+| `Network Propagation` | `Discovery` 436 · `Execution` 213 · `Credential Access` 168 · `Lateral Movement` 71 · `Privilege Escalation` 44 | 932 |
+| `Action on Objectives` | `Impact` 129 · `Collection` 90 · `Exfiltration` 11 | 230 |
+
+You author `ukc_phase` only; the platform derives `stage`. `Exploitation`, `Reconnaissance`,
+`Weaponization`, `Social Engineering`, `Pivoting` and `Objectives` never appear on a
+Picus-authored *Endpoint* action — `Exploitation` is the Web Application module's phase.
 
 | Phase |
 |---|
