@@ -704,6 +704,40 @@ what it checks, plus the few judgement calls it cannot make:
 
 ---
 
+## Deleting custom actions (safety rules)
+
+Threat DELETE leaves the threat's actions behind, and the public API cannot delete actions (GET only).
+Actions are deleted through the UI's internal API, using the logged-in browser session:
+
+```
+DELETE https://<picus>/api/v2/ui/actions/action/{id}
+Cookie: <copy the whole cookie header from DevTools -> Network -> any DELETE in /scv/threat-builder>
+Origin: https://<picus>   Referer: https://<picus>/scv/threat-builder
+-> 200 {"code":200,"success":true,"data":{"message":"action deleted successfully"}}
+```
+
+The `token` cookie in that header lasts about 2 hours; the cookie stays in the user's own file
+(e.g. `platform/picus_delete_action`), never copy it anywhere else and never print it.
+
+**Hard rules**
+1. **Delete only actions the user created (custom actions).** Never delete an action that the Picus
+   platform ships. Custom actions come from one global counter starting at 1000101 and have
+   `id == display_id` (verified: 1000101 / 1000100 are custom; Picus's predefined 11735 has
+   display_id 182594, 13193 has 772823 -- `id != display_id`, and predefined records also carry a
+   `tags` field). A display_id in the millions is **not** proof of "custom" (BitlockMove is 5234974).
+2. **Delete only ids the user created in this work**: take the ids from this session's own import
+   (new actions are created contiguously), re-read each one with
+   `GET /v1/threat-library/actions/{id}`, and delete only if its name matches what you imported
+   AND `id == display_id`. Never sweep a range you did not import.
+3. **If the user asks for something that looks like a Picus platform action** (id != display_id,
+   a low id, a predefined-looking name, or anything you did not import): STOP, tell the user it
+   looks like a Picus-shipped action, remind them they asked to delete it and that it cannot be
+   undone, and wait for an explicit confirmation before sending the DELETE. Do not infer consent
+   from the earlier "delete everything" wording.
+4. An action that is still used by a threat is not an orphan: delete the threat first (public API
+   `DELETE /v1/threat-library/threats/{id}` works), then its actions.
+5. Report afterwards how many were deleted / skipped, and re-GET to confirm.
+
 ## Common errors & fixes
 
 | Error | Cause | Fix |
@@ -719,6 +753,7 @@ what it checks, plus the few judgement calls it cannot make:
 | `Set-BitLockerVolume`: "The drive is too small to be protected" (0x8031006F) | scratch VHDX of 64MB | `New-VHD -SizeBytes 256MB` or larger |
 | `New-VHD` / `manage-bde` "not recognized", BDESVC "does not exist" | agent lacks Hyper-V PowerShell / BitLocker feature; those actions grade blocked (and `success_conditions` can match the error text -> spurious *unblocked*) | on the agent: `Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-Management-PowerShell -All -NoRestart` (needs `-All` for the parent feature) and install BitLocker; a Windows **Server** SKU often lacks both |
 | Real **Prevention** from CrowdStrike on `manage-bde -on ... -RemoveVolumeShadowCopies` | VSS-deletion behaviour ("Suspicious Activity") | genuine block, report it; drop the flag for a variant that tests encryption alone |
+| Action names get a ` (1)`, ` (2)` ... suffix after re-import | action `name` is **globally unique** and **deleting a threat does not delete its actions** (orphans stay, still holding the name) | action names are **free text** -- Picus's own are like `PHP Php2Shell RCE Vulnerability Variant-1`, so spaces, capitals and punctuation are fine and no prefix or snake_case is needed. If a suffix appears, an orphan owns the name: delete the orphan with the procedure in **Deleting custom actions** below (never rename around it just to dodge the suffix) |
 | Dropped Windows payload never executes | wrapped in `cmd.exe /c` when nothing needed a shell, or `remote_files` put at action level instead of inside the process | put the drop in `path` as `%TMP%\tool.exe` with its `remote_files` nested in the same process |
 | `{predefined-process-sleep}` step does nothing | `arguments` written as a bare number (`5`) instead of a quoted string (`"5"`) | quote it; Picus writes `arguments: "5"` in all 33 of its own sleep steps |
 | Lateral-movement action runs against nothing | hardcoded peer host/credentials, or `is_remote`/`needs_creds` authored in the YAML | use `%REMOTEIP%` / `%REMOTEHOSTNAME%` / `%REMOTEDOMAIN%` / `%REMOTEUSERNAME%` / `%REMOTEPASSWORD%` in `arguments`; those two fields are UI-API-only and are ignored on import |

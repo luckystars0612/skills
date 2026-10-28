@@ -291,6 +291,8 @@ now checks them. Each cost one import -> run cycle (import is additive, so each 
 | Dropped `.ps1`/`.vbs` play process never spawns | `is_executable: true` + absolute drop dir on Windows | removing both (path -> `%TMP%\x`, run via `cmd.exe /c`) made both execute (Sysmon EID 1 `wscript.exe "...\Temp\Disk.vbs"`); the Windows house form never has `is_executable` |
 | `0x8031006F` drive too small | 64MB VHDX | 256MB works |
 
+**Re-import clutter.** `DELETE /v1/threat-library/threats/{id}` works, but the actions of a deleted threat stay in the library (88 orphans after four BitLocker re-imports) and keep their names, so every re-import gets `name (N)` suffixes. **Deleting orphan actions** works only through the UI internal API with the browser cookie; the full procedure and the safety rules (custom actions only, `id == display_id`, ask first for anything that looks Picus-shipped) are in `SKILL.md` -> *Deleting custom actions*. Action `name` is free text (`PHP Php2Shell RCE Vulnerability Variant-1` style), so no prefix is needed once the orphans are gone. The API token also cannot delete simulations (`403 token scope not permitted`) and has no template DELETE. Pick unique action names up front instead of iterating on the same names.
+
 Diagnosis order for any `not tested`/empty run: (1) `command == " "`? -> absolute `path` or missing
 action `affected_platforms`; (2) command filled but no `Simulator.exe` child in Sysmon -> drop
 problem (`is_executable`, drop dir); (3) `log_content` says timed out -> ms timeout; (4) only then
