@@ -547,7 +547,7 @@ remote_files:
 play_processes:
   - path: reg.exe
     arguments: add "HKCU\...\RunOnce" /v "*x" /d "%TMP%\dummy.exe" /f
-    timeout: 15                  # process-level, undocumented until now
+    timeout: 15000               # process-level, MILLISECONDS (15 = 15 ms = killed at once)
     remote_files:
       - file: files/<base64 blob>
         path: '%TMP%\dummy.exe'
@@ -696,6 +696,9 @@ what it checks, plus the few judgement calls it cannot make:
 - [ ] `is_applicable_to_all_platforms` is set on every action
 - [ ] Endpoint actions have at least one `play_processes` entry with a `path` or `arguments`
 - [ ] File Download / Email actions have `remote_files[].is_downloaded: true`
+- [ ] Windows endpoint: **every action** has `affected_platforms` (not only the campaign) and process `timeout`s are **milliseconds** (>= 1000)
+- [ ] Windows `remote_files`: only `file` / `path: '%TMP%\name'` / `is_downloaded`; no `is_executable`, no absolute dir; scripts run through `cmd.exe /c`
+- [ ] After import, run once on a Windows agent and confirm `command != " "` and `log_content` non-empty (else see the two "not tested" rows above)
 - [ ] ZIP password is `picus` (AES-256 via `7z -mem=AES256 -tzip`)
 - [ ] Module-specific items in the per-module reference doc's authoring checklist pass
 
@@ -710,6 +713,12 @@ what it checks, plus the few judgement calls it cannot make:
 | `400 — invalid YAML` | Syntax error or missing required field | Check indentation, required fields (`name`, `module`, `objectives`, `actions`) |
 | `File not found in archive` | `remote_files.file` path doesn't match | Ensure `file: files/payload.bin` matches actual ZIP path |
 | Action `not tested`, `completion_ratio: 0`, `command: " "` in the run result | absolute `path` in a Windows `play_processes` entry — agent returns empty path *and* arguments | use the bare exe name (`reg.exe`), or `%TMP%\tool.exe` for a payload you dropped; see Process `path` above. The rewind still runs, so it looks like an EDR block |
+| Action `not tested` + UI "Can not run process on an incompatible platform"; only the rewind runs, `command: " "`, no child of `Picus.Simulator.exe` | **no action-level `affected_platforms`** (campaign-level does not count) | copy the campaign's platform list onto EVERY action; `validate_threat.py` now ERRORs. Same symptom as the absolute-`path` row above -- check both |
+| Process killed instantly, log `Is timed out. Timeout : 0.03`, action grades **blocked** | `timeout` is **milliseconds**, not seconds (`timeout: 30` = 30 ms) | use 5000-120000; `validate_threat.py` ERRORs on < 1000 |
+| Windows play process with a dropped script (`.vbs`/`.ps1`) never starts: no Sysmon EID 1, no EDR event, empty output | `remote_files` carries `is_executable: true` and/or an absolute drop dir (`C:\ProgramData\...`) | Windows form is `file` / `path: '%TMP%\name'` / `is_downloaded: true` only; run it via `cmd.exe /c wscript.exe "%TMP%\x.vbs"` or `cmd.exe /c powershell.exe -File "%TMP%\x.ps1"` (`arguments` is not shell-expanded, so `%TMP%` needs cmd) |
+| `Set-BitLockerVolume`: "The drive is too small to be protected" (0x8031006F) | scratch VHDX of 64MB | `New-VHD -SizeBytes 256MB` or larger |
+| `New-VHD` / `manage-bde` "not recognized", BDESVC "does not exist" | agent lacks Hyper-V PowerShell / BitLocker feature; those actions grade blocked (and `success_conditions` can match the error text -> spurious *unblocked*) | on the agent: `Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-Management-PowerShell -All -NoRestart` (needs `-All` for the parent feature) and install BitLocker; a Windows **Server** SKU often lacks both |
+| Real **Prevention** from CrowdStrike on `manage-bde -on ... -RemoveVolumeShadowCopies` | VSS-deletion behaviour ("Suspicious Activity") | genuine block, report it; drop the flag for a variant that tests encryption alone |
 | Dropped Windows payload never executes | wrapped in `cmd.exe /c` when nothing needed a shell, or `remote_files` put at action level instead of inside the process | put the drop in `path` as `%TMP%\tool.exe` with its `remote_files` nested in the same process |
 | `{predefined-process-sleep}` step does nothing | `arguments` written as a bare number (`5`) instead of a quoted string (`"5"`) | quote it; Picus writes `arguments: "5"` in all 33 of its own sleep steps |
 | Lateral-movement action runs against nothing | hardcoded peer host/credentials, or `is_remote`/`needs_creds` authored in the YAML | use `%REMOTEIP%` / `%REMOTEHOSTNAME%` / `%REMOTEDOMAIN%` / `%REMOTEUSERNAME%` / `%REMOTEPASSWORD%` in `arguments`; those two fields are UI-API-only and are ignored on import |

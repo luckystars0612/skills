@@ -279,6 +279,32 @@ grade Logged on the teardown instead of the attack.
 
 ---
 
+## 9. More silent no-ops found running real BitLocker threats (2026-10-28)
+
+All four graded `not tested` or `blocked` with nothing wrong in the YAML syntax, so the validator
+now checks them. Each cost one import -> run cycle (import is additive, so each leaves clutter).
+
+| Symptom | Cause | Proof |
+|---|---|---|
+| `not tested`, UI "Can not run process on an incompatible platform", `command " "`, only rewind in Sysmon | no **action-level** `affected_platforms` | adding the 6-OS list to each action flipped 16/16 actions to executing; agents 4 and 9 behaved identically, so not an agent fault |
+| `Is timed out. Timeout : 0.03`, graded blocked | `timeout` is **ms**; `timeout: 30` = 30 ms | Picus's own exports use 5000/10000/20000; x1000 fixed it |
+| Dropped `.ps1`/`.vbs` play process never spawns | `is_executable: true` + absolute drop dir on Windows | removing both (path -> `%TMP%\x`, run via `cmd.exe /c`) made both execute (Sysmon EID 1 `wscript.exe "...\Temp\Disk.vbs"`); the Windows house form never has `is_executable` |
+| `0x8031006F` drive too small | 64MB VHDX | 256MB works |
+
+Diagnosis order for any `not tested`/empty run: (1) `command == " "`? -> absolute `path` or missing
+action `affected_platforms`; (2) command filled but no `Simulator.exe` child in Sysmon -> drop
+problem (`is_executable`, drop dir); (3) `log_content` says timed out -> ms timeout; (4) only then
+look at the EDR: `index=crowdstrike` events with `pattern_disposition` starting `Prevention` are the
+only real blocks -- `Detection, standard detection` on `Picus.Simulator.exe` launch is Informational
+noise that also appears on successful heartbeats.
+
+Environment facts: the agent exec user (`basuser`) runs play, `AgentService` (SYSTEM) runs rewind;
+`%TMP%` expands to `C:\Users\basuser\AppData\Local\Temp` at run time; `arguments` is never
+shell-expanded. BitLocker threats need the BitLocker feature plus Hyper-V PowerShell (`New-VHD`)
+on the agent; Windows Server images usually have neither.
+
+---
+
 ## 8. Checklist before shipping a custom threat
 
 1. `python3 scripts/validate_threat.py <dir-or-yaml>` → 0 errors.
@@ -293,3 +319,5 @@ grade Logged on the teardown instead of the attack.
 6. All `comment` fields ≤ 255 chars.
 7. Import → create simulation → run → confirm `command` and `log_content` are non-empty.
 8. Confirm the host-side telemetry you expect (Sysmon EID1/EID13, auditd EXECVE) actually appears.
+9. Windows endpoint: `affected_platforms` on every action, `timeout` in milliseconds, `remote_files`
+   without `is_executable` and dropped to `%TMP%\name` (section 9).

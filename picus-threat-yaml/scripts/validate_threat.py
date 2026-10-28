@@ -544,6 +544,56 @@ def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
                 pps = a.get("play_processes") or []
                 if not pps:
                     rep.err(aw, "Endpoint action has no `play_processes`")
+                win = mod == "Endpoint Scenario"
+                # Found 2026-10-28: without action-level affected_platforms the UI says
+                # "Not Tested: Can not run process on an incompatible platform"; play
+                # never runs, only rewind does. Campaign-level platforms do NOT count.
+                if win and not a.get("affected_platforms") \
+                        and a.get("is_applicable_to_all_platforms") is not True:
+                    rep.err(aw, "no action-level `affected_platforms` (and "
+                                "is_applicable_to_all_platforms is not true). Picus then grades "
+                                "the action 'not tested: Can not run process on an incompatible "
+                                "platform' and silently skips play_processes -- only the rewind "
+                                "runs. Copy the platform list from the campaign onto EVERY action.")
+                for kind in ("play_processes", "rewind_processes"):
+                    for pi, pr in enumerate(a.get(kind) or [], 1):
+                        if not isinstance(pr, dict):
+                            continue
+                        tmo = pr.get("timeout")
+                        if isinstance(tmo, int) and 0 < tmo < 1000:
+                            rep.err(aw, f"{kind}[{pi}].timeout {tmo} is MILLISECONDS (Picus uses "
+                                        f"5000-120000). {tmo} ms kills the process at once, the "
+                                        f"log shows 'Is timed out. Timeout : {tmo/1000}' and the "
+                                        f"action grades blocked. Write {tmo*1000}.")
+                        if win and pr.get("path") not in ("cmd.exe",) \
+                                and re.search(r"%(TMP|TEMP|APPDATA|windir|public)%",
+                                              str(pr.get("arguments", "")), re.I) \
+                                and not str(pr.get("path", "")).startswith("%"):
+                            rep.warn(aw, f"{kind}[{pi}].arguments uses a %VAR% but the process is "
+                                         f"not run through a shell: `arguments` is not expanded, "
+                                         f"so wscript/powershell receive the literal text. Wrap in "
+                                         f"cmd.exe /c \"...\".")
+                        if win and kind == "play_processes":
+                            for rf in (pr.get("remote_files") or []):
+                                if rf.get("is_executable"):
+                                    rep.err(aw, f"{kind}[{pi}].remote_files has `is_executable: true` "
+                                                f"on Windows. Picus's Windows form is file/path/"
+                                                f"is_downloaded only (is_executable is the Unix "
+                                                f"chmod flag). With it the play process silently "
+                                                f"never starts (no Sysmon EID1, no EDR event).")
+                                rp = str(rf.get("path", ""))
+                                if re.match(r"^[A-Za-z]:\\", rp):
+                                    rep.err(aw, f"{kind}[{pi}].remote_files.path {rp!r} is an "
+                                                f"absolute drop directory. Picus drops to an "
+                                                f"env-var location (560/583 use %TMP%); write "
+                                                f"'%TMP%\\<name>' and run it via cmd.exe /c.")
+                    if win:
+                        for pr in a.get(kind) or []:
+                            for m_ in re.finditer(r"-SizeBytes\s+(\d+)MB", str(pr.get("arguments", "")), re.I):
+                                if int(m_.group(1)) < 256 and "bitlocker" in str(pr.get("arguments", "")).lower():
+                                    rep.warn(aw, f"VHDX of {m_.group(1)}MB: BitLocker refuses "
+                                                 f"volumes this small (0x8031006F, 'drive too small'); "
+                                                 f"use >= 256MB.")
                 for pi, pr in enumerate(pps, 1):
                     if not isinstance(pr, dict):
                         rep.err(aw, f"play_processes[{pi}] is not a mapping")

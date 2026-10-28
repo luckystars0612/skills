@@ -25,7 +25,7 @@ Each item in `play_processes` or `rewind_processes`:
 |---|---|---|---|
 | `path` | Windows only | String | The executable. **Form depends on the OS — see Process `path` convention below.** Windows: a bare exe name (`cmd.exe`). Linux/macOS/K8s: **omit it** and put the whole command in `arguments`. |
 | `arguments` | No | String | Command-line arguments passed to the executable. |
-| `timeout` | No | Integer | Timeout in seconds before the process is killed. |
+| `timeout` | No | Integer | Timeout in **milliseconds** before the process is killed (Picus uses 5000-20000; a value like 30 = 30 ms and kills the process instantly, graded blocked with "Is timed out. Timeout : 0.03"). |
 | `delay` | No | Integer | Delay in seconds before execution starts. |
 | `is_async` | No | Boolean | Run asynchronously (don't wait for process to finish). |
 | `remote_files` | No | List | Binary files the process needs. See Remote Files. |
@@ -96,6 +96,8 @@ Note the `files/` entry name: **base64 of `<basename>___<uuid>.<ext>`**
 (`VnNHcmFwaGljc0Rlc2t0b3BFbmdpbmVfX18...` decodes to
 `VsGraphicsDesktopEngine___8d433fd6-a214-45c0-b709-629b5204a5d0.exe`). The `path:` beside it is
 where the agent writes the file; that is the path you then reference.
+
+**Windows `remote_files`: never `is_executable`, never an absolute drop dir.** Verified 2026-10-28: a script dropped to `C:\ProgramData\...` with `is_executable: true` made the whole play process silently not start (no Sysmon EID 1, no EDR event, empty output). Dropping to `%TMP%\x.ps1` with only `file`/`path`/`is_downloaded` worked. `%TMP%` is not expanded in `arguments` (no shell), so run a dropped script via `cmd.exe /c wscript.exe "%TMP%\Disk.vbs"` or `cmd.exe /c powershell.exe -File "%TMP%\x.ps1"`.
 
 Use `cmd.exe /c "%TMP%\tool.exe" ...` only when the invocation genuinely needs a shell — a pipe,
 `&&`, a redirect, or an inner quoted command:
@@ -284,7 +286,7 @@ Each item in `success_conditions`:
   play_processes:
     - path: cmd.exe
       arguments: /c "%TMP%\mimikatz.exe" "sekurlsa::logonpasswords" exit
-      timeout: 60
+      timeout: 60000
       delay: 0
       is_async: false
       remote_files:                      # nested in the PROCESS, not the action
@@ -299,7 +301,7 @@ Each item in `success_conditions`:
   rewind_processes:
     - path: cmd.exe
       arguments: /c del "%TMP%\mimikatz.exe"
-      timeout: 30
+      timeout: 30000
 ```
 
 ---
@@ -355,7 +357,7 @@ An action can have multiple play_processes executed in sequence:
   play_processes:
     - path: cmd.exe
       arguments: /c copy files\stage1.exe "%TMP%\stage1.exe"
-      timeout: 30
+      timeout: 30000
       remote_files:
         - file: files/stage1.exe
           path: '%TMP%\stage1.exe'
@@ -363,7 +365,7 @@ An action can have multiple play_processes executed in sequence:
           is_downloaded: true
     - path: cmd.exe
       arguments: /c "%TMP%\stage1.exe" --silent
-      timeout: 60
+      timeout: 60000
       delay: 5
       success_conditions:
         - code: 0
@@ -371,7 +373,7 @@ An action can have multiple play_processes executed in sequence:
   rewind_processes:
     - path: cmd.exe
       arguments: /c del "%TMP%\stage1.exe"
-      timeout: 15
+      timeout: 15000
 ```
 
 ---
@@ -427,7 +429,7 @@ campaign:
           play_processes:
             - path: cmd.exe
               arguments: /c procdump.exe -accepteula -ma lsass C:\Temp\lsass.dmp
-              timeout: 120
+              timeout: 120000
               remote_files:
                 - file: files/procdump.exe
                   path: '%TMP%\procdump.exe'
@@ -439,5 +441,5 @@ campaign:
           rewind_processes:
             - path: cmd.exe
               arguments: /c del C:\Temp\lsass.dmp & del C:\Temp\procdump.exe
-              timeout: 30
+              timeout: 30000
 ```
