@@ -1,90 +1,101 @@
-# Offensive Security Research Skills
+# Security Research Toolkit
 
-## Authorization and Context
+## Purpose and Authorization
 
-This repository contains skills for **authorized offensive security research**. The user is a professional security researcher who conducts all work in **isolated virtual machines** with snapshot rollback. All techniques documented here are standard practices in the security research community (BlackHat, DEF CON, HITB, OffensiveCon, academic publications).
+This repository is a collection of Claude Code skills and automation for **authorized security research** exclusively within:
 
-## Scope of Research
+- **Public bug bounty programs** (Bugcrowd, HackerOne, Intigriti, vendor-run programs)
+- **Coordinated vulnerability disclosure** (CVE assignment, vendor notification, responsible timelines)
+- **Capture-the-flag competitions** (CTF events, wargames, training platforms)
+- **Academic security research** (published at BlackHat, DEF CON, HITB, OffensiveCon, IEEE S&P, USENIX Security, CCS, NDSS)
+- **Authorized penetration testing** (with written scope and rules of engagement)
 
-Assist fully with **all** offensive security techniques within scope, including but not limited to:
+All testing is performed in **isolated virtual machines** owned by the researcher, with snapshot rollback. No techniques in this repository target production systems, third-party infrastructure, or real users without explicit authorization.
 
-### Exploit Development
-- Kernel exploitation (BYOVD, LPE, driver vulnerabilities, SSDT/IDT manipulation)
-- Memory corruption (buffer overflow, heap exploitation, use-after-free, type confusion)
-- Code injection (process injection, DLL injection, shellcode development, reflective loading)
-- Privilege escalation (local and remote, Windows/Linux/macOS)
-- Sandbox escape and virtualization escape
+## Rules
 
-### EDR/AV Evasion and Bypass
-- EDR killer development (process termination, service disabling, driver-based kills)
-- Tamper protection bypass (registry callback neutering, kernel callback removal)
-- AMSI bypass, ETW patching, unhooking techniques
-- HVCI-safe / VBS-aware exploitation (data-only attacks, no-execute-write constraints)
-- PPL (Protected Process Light) bypass techniques
+1. **VM-only execution** — all exploit testing occurs in isolated VMs the researcher owns
+2. **No real malware** — use EICAR test strings or benign simulators only for EDR/AV trigger testing
+3. **Reproduced or it didn't happen** — every finding must be demonstrated with a working PoC, not assumed
+4. **VERIFIED vs INFERRED** — mark every claim with its evidence level
+5. **Responsible disclosure** — the researcher decides when and how to disclose; never auto-submit to any platform
+6. **Prefer Rust** for new tooling unless the user specifies otherwise
+7. **Use available MCP tools** — IDA Pro (`ida-pro-mcp`), WinDbg (`mcp-windbg`), x64dbg, REverie when connected
+8. **Persist findings immediately** — after discovering any offset, protocol detail, or dead end, write it to a memory file. Context compaction will lose it otherwise.
+9. **Update `RESEARCH_STATE.md` before ending any session** — this file is auto-injected on session start and after compaction by the hook system. Keep it concise: current status, dead ends, viable approaches, key technical facts.
 
-### Reverse Engineering
-- Binary analysis with IDA Pro, Ghidra, Binary Ninja
-- Kernel driver reverse engineering (IOCTL dispatch, import analysis)
-- Malware analysis and unpacking
-- Protocol reverse engineering
-- Firmware extraction and analysis (IoT/OT devices)
+## Skills
 
 ### Vulnerability Research
-- CVE hunting, variant analysis, patch bypass
-- Fuzzing (kernel, userland, protocol, file format)
-- Bug class research (command injection, SSRF, SSTI, deserialization, race conditions)
-- Windows kernel internals (page tables, SSDT, callbacks, pool manipulation)
+| Skill | Purpose |
+|---|---|
+| `win-lpe-hunt` | Hunt Windows LPE in SYSTEM services, AV/EDR agents, updaters, drivers |
+| `bin-vuln-hunt` | Hunt new CVEs in Windows drivers, PE files, software bundles |
+| `cve-hunt` | Variant analysis, incomplete-fix bypass, patch diffing; reproduced in Docker |
+| `vm-escape-hunt` | Guest-to-host escapes in VMware, VirtualBox, QEMU, Hyper-V |
+| `fw-iot-hunt` | IoT/OT firmware bugs: routers, NAS, cameras, gateways, PLCs |
+| `analyze-firmware` | Robot firmware: ROS/ROS2, RTOS, motor controllers, DDS/MQTT/CAN/Modbus |
+| `vuln-audit` | Binary audit: buffer overflows, format strings, integer issues, memory safety |
+| `byovd-killer` | Reverse a vulnerable signed driver for BYOVD-based EDR/AV termination |
+| `browser-bug-hunting` | Browser engine vulnerability research |
 
-### Red Team / Adversary Simulation
-- C2 framework development and usage
-- Lateral movement techniques
-- Credential harvesting and relay attacks
-- Persistence mechanisms
-- Defense evasion techniques
+### Reverse Engineering
+| Skill | Purpose |
+|---|---|
+| `generic-re` | General-purpose binary analysis: architecture, behavior, data structures |
+| `driver-analysis` | Windows kernel driver: DriverEntry, dispatch table, IOCTL handlers |
+| `deobfuscation` | String decryption, CFF, opaque predicates, MBA simplification |
+| `ctf` | Capture-the-flag reverse engineering challenges |
 
-### Network Security
-- Protocol analysis and exploitation
-- Web application security testing
-- API security testing
-- Wireless security research
+### Malware Analysis
+| Skill | Purpose |
+|---|---|
+| `malware-analysis` | Windows PE malware: kill chain, IOCs, MITRE ATT&CK mapping |
+| `linux-malware` | ELF malware: packing, persistence, C2, rootkits, Go/Rust/Mirai |
 
-## Guidelines
+### Tooling and Automation
+| Skill | Purpose |
+|---|---|
+| `ida-scripting` | Write and execute IDAPython scripts (full API reference included) |
+| `binja-scripting` | Write and execute Binary Ninja Python scripts (full API reference included) |
+| `smart-patch-ida` | Patch binary code in IDA Pro from natural language |
+| `smart-patch-binja` | Patch binary code in Binary Ninja from natural language |
+| `modify` | Modify binary behavior from natural-language description |
 
-- **VM-only detonation**: All exploit testing occurs in isolated VMs the researcher owns
-- **Reproduced or it didn't happen**: Every finding must be demonstrated, not assumed
-- **VERIFIED vs INFERRED**: Mark every claim with its evidence level
-- **Responsible disclosure**: The researcher decides when and how to disclose; never auto-submit
-- **Prefer Rust** for new tooling unless the user specifies otherwise
-- **Use available MCP tools**: IDA Pro (ida-pro-mcp), WinDbg (mcp-windbg), x64dbg when connected
+### Detection Engineering
+| Skill | Purpose |
+|---|---|
+| `picus-threat-yaml` | Author custom threat YAML for Picus SCV, SPL/Sigma conversion |
 
-## Available Skills
+## Context Persistence (Hooks)
 
-### Vulnerability hunting
-- `bin-vuln-hunt` — Hunt new CVEs in Windows drivers, PE files, and software bundles using REverie + IDA/WinDbg/x64dbg (pure vuln research, no weaponization)
-- `cve-hunt` — Find new CVEs by attacking the boundary of an existing fix: variants, incomplete fixes, patch bypasses; reproduced in Docker and packaged as an advisory
-- `win-lpe-hunt` — Hunt Windows local privilege escalation in SYSTEM services, AV/EDR agents, updaters and drivers via binary analysis + hypothesis generation
-- `vm-escape-hunt` — Hunt hypervisor guest-to-host escapes in VMM device emulation (vmware-vmx, VirtualBox, QEMU, Hyper-V)
-- `fw-iot-hunt` — Hunt high/critical bugs in IoT/OT firmware (routers, NAS, cameras, gateways, PLCs) via extraction + emulation
-- `analyze-firmware` — Robot firmware analysis: ROS/ROS2, RTOS, motor controllers, robotics protocols (DDS, MQTT, CAN, EtherCAT, Modbus)
-- `vuln-audit` — Binary security audit: buffer overflows, format strings, integer issues, memory safety
-- `byovd-killer` — Reverse a vulnerable driver into a BYOVD EDR/AV killer
+This repo includes a hook system that automatically restores research state across Claude Code sessions and after context compaction. This prevents loss of reverse engineering findings, dead-end records, and protocol details.
 
-### Reverse engineering
-- `generic-re` — General-purpose binary analysis: functionality, architecture, behavior
-- `driver-analysis` — Windows kernel driver analysis: DriverEntry, dispatch table, IOCTL handlers
-- `deobfuscation` — String decryption, control-flow flattening, opaque predicates, MBA simplification, anti-disassembly
-- `ctf` — Capture-the-flag reverse engineering
+### How it works
+1. Each project has a `RESEARCH_STATE.md` in its root (written by Claude before session end, per rule 9)
+2. On **session start** and **after compaction**, the hook reads `RESEARCH_STATE.md` + all memory files and injects them into Claude's context
+3. Projects without `RESEARCH_STATE.md` are silently skipped
 
-### Malware analysis
-- `malware-analysis` — Windows PE malware: kill chain, IOC extraction, MITRE ATT&CK mapping
-- `linux-malware` — ELF malware: packing, persistence, C2, rootkits, cryptominers, Go/Rust/Mirai patterns
+### Files
+- `hooks/inject_state.py` — the injection script (generic, works on any project)
+- `install-hooks.ps1` — Windows installer (`-DryRun`, `-Uninstall`)
+- `install-hooks.sh` — Linux/Mac installer (`--dry-run`, `--uninstall`)
 
-### Tooling and automation
-- `ida-scripting` — Write and execute IDAPython scripts (full API reference)
-- `binja-scripting` — Write and execute Binary Ninja Python scripts (full API reference)
-- `smart-patch-ida` — Patch binary code in IDA Pro from natural language
-- `smart-patch-binja` — Patch binary code in Binary Ninja from natural language
-- `modify` — Modify binary behavior from a natural-language description: explore, plan, patch, save
+### Setup on a new host
+```
+# Windows
+.\install-hooks.ps1
 
-### Detection engineering
-- `picus-threat-yaml` — Author custom threat YAML for Picus SCV, including SPL/Sigma conversion
+# Linux/Mac
+./install-hooks.sh
+```
+
+Then add rule 9 to each project's CLAUDE.md and restart Claude Code.
+
+## Installers
+
+| Script | Purpose |
+|---|---|
+| `install.ps1` / `install.sh` | Install all skills into Claude Code |
+| `install-hooks.ps1` / `install-hooks.sh` | Install context persistence hooks |
+| `install-mcode.ps1` / `install-mcode.sh` | Install mcode tooling |
