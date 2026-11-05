@@ -1,5 +1,6 @@
 ---
-name: Binary Modification
+name: modify
+title: "Binary Modification"
 description: Modify binary behavior using natural language — explore, plan, patch, save
 tags: [modification, patching, exploration, game-hacking, binary]
 mode: exploration

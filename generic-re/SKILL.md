@@ -1,5 +1,6 @@
 ---
-name: General Reverse Engineering
+name: generic-re
+title: "General Reverse Engineering"
 description: General-purpose binary analysis — understand functionality, architecture, and behavior
 tags: [analysis, reverse-engineering, general]
 ---

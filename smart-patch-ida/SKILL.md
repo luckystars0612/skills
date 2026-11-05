@@ -1,5 +1,6 @@
 ---
-name: Smart Patch (IDA Pro)
+name: smart-patch-ida
+title: "Smart Patch (IDA Pro)"
 description: Patch binary code in IDA Pro using natural language — read, assemble, write, verify
 tags: [patching, assembly, binary, ida]
 author: Rikugan

@@ -197,7 +197,7 @@ Read in plain terms:
 
 - **File Download** — `((SHA256 OR SHA1 OR MD5) OR (MD5 AND "<ext>"))`
 - **Email** — `(("<display_id>" AND ("Attachment" OR "URL")) OR ((SHA256 OR SHA1 OR MD5) OR (MD5 AND "<ext>")))`
-- **Web Application** — a **single term**: `("page<PICUSID>")`
+- **Web Application** — a **single term**: `("page<PICUSID>")`, where PICUSID is the action's own display_id (what the agent puts in place of `{PICUSID}` in the `.req`); for custom threats set it after import — [web-keyword-fix.md](web-keyword-fix.md)
 - **URL Filtering** — a **single term**: `("<domain>")`
 - **Data Exfiltration** — `(((("act_id" AND "<id>") OR "-<id>-" OR "|<id>|") OR ((hashes) OR ("<dataset>" AND "<ext>"))) AND NOT ("picexfil" AND "short-url"))`
 - **Endpoint (all OS)** — `((<name/hash/arg terms>) AND NOT (<rewind + cleanup noise>))`
@@ -715,3 +715,56 @@ to characterise; noted so it is not mistaken for invalid if it shows up in an ex
 | **macOS Endpoint** | **0/50** |
 
 So only the three non-Kubernetes Endpoint modules omit it.
+
+
+---
+
+## Final consolidated sample — 171 Picus threats / 2450 actions
+
+The export sampler finished: **171 threats exported, 54 license-blocked (the three Cloud
+modules), 0 failures.** Kubernetes is complete at 13/13 — that is every Kubernetes threat in
+the library. These are the numbers to trust; earlier passes in this file used smaller samples.
+
+| Module | Threats | Actions | `title` | `is_applicable_to_all_platforms` | `is_privileged` | `rewind_processes` | `tactic` |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| URL Filtering | 20 | 1016 | 924 | 1016 | 0 | 0 | 0 |
+| Endpoint Scenario | 20 | 218 | **0** | 52 | 55 | 161 | 218 |
+| Web Application | 20 | 179 | 178 | 179 | 0 | 0 | 0 |
+| Email | 20 | 175 | 175 | 175 | 0 | 0 | 0 |
+| File Download | 20 | 175 | 175 | 175 | 0 | 0 | 0 |
+| Linux Endpoint | 20 | 180 | **4** | 155 | 28 | 137 | 180 |
+| Kubernetes Endpoint | 13 | 174 | 174 | 146 | 34 | 125 | 174 |
+| Data Exfiltration | 19 | 174 | 174 | 174 | 0 | 0 | 2 |
+| macOS Endpoint | 19 | 159 | **0** | 128 | 49 | 106 | 159 |
+
+Three rules hold with **zero exceptions across all 2450 actions**:
+
+1. **`is_privileged` and `rewind_processes` are Endpoint-family only** — 0 occurrences in Email,
+   File Download, Data Exfiltration, Web Application or URL Filtering.
+2. **`tactic` is Endpoint-family only** (218/218, 180/180, 174/174, 159/159), plus 2 stray
+   Data Exfiltration actions. Never on Email, File Download, Web Application or URL Filtering.
+3. **`remote_files` placement is absolute:**
+
+| Module | On the action | On a `play_process` |
+|---|---:|---:|
+| Data Exfiltration | 174 | **0** |
+| Email | 175 | **0** |
+| File Download | 175 | **0** |
+| Endpoint Scenario | **0** | 138 |
+| Kubernetes Endpoint | **0** | 133 |
+| Linux Endpoint | **0** | 142 |
+| macOS Endpoint | **0** | 99 |
+
+### `success_conditions` across all 1169 play_processes
+
+| Shape | Count | Share |
+|---|---:|---:|
+| absent entirely | 625 | 53% |
+| `{output}` | 441 | 38% |
+| `{code, is_inverse}` | 43 | 4% |
+| `{output, is_inverse}` | 43 | 4% |
+| `{}` (empty) | 32 | 3% |
+| `{code}` | 9 | <1% |
+| `{code, output}` | 2 | <1% |
+
+Blank or whitespace-only `output`: **0**.

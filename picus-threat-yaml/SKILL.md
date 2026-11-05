@@ -52,6 +52,11 @@ When the user asks for a threat:
    local threats pass with zero errors; a deliberately broken threat trips 18 checks.
 6. **Package** — AES-256-encrypted ZIP with password `picus`, then validate the archive
    itself: `validate_threat.py my_threat.zip`.
+7. **Web Application only — fix keywords after import.** The correct keyword is
+   `("page<display_id>")`, and the display_id only exists once Picus has created the action.
+   After the import run `scripts/fix_web_keywords.py ids|fix|verify` (see
+   [web-keyword-fix.md](references/web-keyword-fix.md)), then re-check the edited actions:
+   **Products is always lost** on an edit; description and Method must still be present.
 
 If the input is a Splunk SPL / Sigma rule / plain-text goal AND the module is
 **Linux Endpoint** or **Windows Endpoint**, you can use the [auto-pipeline](#auto-pipeline-linux--windows-endpoint-only)
@@ -71,7 +76,9 @@ Alongside it:
 
 | Reference | Contents |
 |---|---|
+| [picus-house-style.md](references/picus-house-style.md) | **patterns read off the vendor's own predefined threats** — the per-OS `play_processes[].path` rule and its silent-no-op failure mode, `arguments` shell semantics, dropped-payload pattern, Picus's divergence from MITRE (`TA0112` / `T1685`), import limits, and the API recipe to re-derive all of it |
 | [detection.md](references/detection.md) | what "detection" means in Picus, how `keyword_queries` drives it, and the 5858-rule Detection Content catalog |
+| [web-keyword-fix.md](references/web-keyword-fix.md) | Web Application: `{PICUSID}` = action display_id, why the keyword must be `("page<id>")`, the post-import fix script, and what an action edit loses (Products) |
 | [vocab-threat-actors.md](references/vocab-threat-actors.md) | all 206 `threat_actor` values **with aliases** |
 | [vocab-malware-families.md](references/vocab-malware-families.md) | all 2233 `malware_family` values |
 | [vocab-platforms.md](references/vocab-platforms.md) | all 92 `affected_platforms` name/architecture pairs |
@@ -102,7 +109,7 @@ authoring.**
 | `Web Application` | [web-application.md](references/modules/web-application.md) | [Generic XSS Evasion Web Attack Campaign - 14](references/examples/Generic%20XSS%20Evasion%20Web%20Attack%20Campaign%20-%2014/threat.yaml) — see the doc for 5 more real packages (ThinkPHP, Auth Bypass, Java Deserialization, Encoded URI, SharePoint) |
 | `Data Exfiltration` | [data-exfiltration.md](references/modules/data-exfiltration.md) | [PDF Format Data Exfiltration Campaign](references/examples/PDF%20Format%20Data%20Exfiltration%20Campaign/threat.yaml) |
 | `URL Filtering` | [url-filtering.md](references/modules/url-filtering.md) | [Ai Services - 7](references/examples/Ai%20Services%20-%207/threat.yaml) — exported from the live library; `.yaml` only, no `files/` |
-| `Azure / AWS / GCP Cloud Emulation` | [cloud-emulation.md](references/modules/cloud-emulation.md) | no canonical example bundled — see doc for template |
+| `Azure / AWS / GCP Cloud Emulation` | [cloud-emulation.md](references/modules/cloud-emulation.md) | ⚠ **no such attack module on this platform** (probed ids 1-16, nine modules exist, none is Cloud Emulation) — these `module:` values will not import. Author cloud scenarios as `Linux Endpoint Scenario` actions calling the cloud API, as `bas_fp100/05_aws_mfa_disabled` does |
 
 **The skill author itself, not the auto-pipeline, is the source of truth for every
 module above.** The reference docs contain: field inventory with real values, canonical
@@ -188,6 +195,8 @@ Conventions:
   segment — `/page{PICUSID}.htm` and `/loginpage{PICUSID}.htm` are both confirmed-valid forms,
   see [web-application.md](references/modules/web-application.md)) and **no `Host:` header**
   (the target host/port comes from the Picus assessment config, not the `.req` file).
+  Picus replaces `{PICUSID}` with the action's display_id, so the keyword is `("page<display_id>")`
+  — set after import with `scripts/fix_web_keywords.py`.
 - **Data Exfiltration:** realistic-looking PDF/XLSX in `files/<base64("<id>___<uuid>.<ext>")>`
   — one base64 blob, same rule as above.
 - **URL Filtering:** no payload (`.yaml`-only export).
@@ -352,6 +361,47 @@ echo "Ready to import: /tmp/$CAMPAIGN.zip"
 These fields/conventions are common to most modules. **Always defer to the per-module
 doc for module-specific shape, keywords, or noise filters.**
 
+### Process `path` — the single most expensive mistake
+
+For every Endpoint-family module, `play_processes[].path` has an OS-specific shape. Getting it
+wrong does **not** fail the import: the threat loads fine, the run reports `COMPLETED`, and the
+action silently executes nothing (`completion_ratio: 0`, `prevention: "not tested"`,
+`command: " "`). Measured over all 3,704 processes in Picus's 2,252 predefined Endpoint actions:
+
+| Module | Correct `path` | Share in Picus's own library |
+|---|---|---|
+| `Endpoint Scenario` (Windows) | **bare exe name** for anything on `PATH` — `reg.exe`, `cmd.exe`, `powershell.exe` | 1902/2508 = 75.8% |
+| `Endpoint Scenario` (Windows) | **`%TMP%\tool.exe`** for a payload this action dropped | 583/2508 = 23.2% |
+| `Endpoint Scenario` (Windows) | **`{predefined-*}`** pseudo-process (sleep / watch / kill / delete) | 441/2508 |
+| `Linux` / `macOS` / `Kubernetes Endpoint Scenario` | **omit `path`** entirely, whole command in `arguments` | 94–97% |
+
+An absolute Windows path is right only for a binary that is **not reachable by name**
+(`...\Framework64\v4.0.30319\MSBuild.exe`, `C:\Program Files\...\msedge.exe`) — 23 of 2508,
+and only 3 of those name something already on `PATH`.
+
+```yaml
+# Windows — arguments are NOT shell-evaluated; wrap & | > or an inner quoted command in an interpreter
+- path: reg.exe
+  arguments: add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v DisableAntiVirus /t REG_DWORD /d 1 /f
+- path: '%TMP%\tool.exe'                      # a dropped payload IS the path
+  arguments: --flag
+  remote_files:
+    - file: files/<base64 of tool___<uuid>.exe>
+      path: '%TMP%\tool.exe'
+      is_downloaded: true
+- path: '{predefined-process-sleep}'           # Picus's built-in helper steps
+  arguments: "5"
+
+# Linux / macOS / Kubernetes — no `path` key; arguments ARE shell-evaluated
+- arguments: bash -c 'cp /tmp/stager /dev/shm/stager; chmod +x /dev/shm/stager; /dev/shm/stager'
+```
+
+`"$WORKDIR"` (per-simulation working dir) and `$remotefile<digits>` / `%remotefile-<digits>%`
+(injected download URL) are available in the Unix-family endpoint modules.
+`scripts/validate_threat.py` now errors on an absolute Windows path. Full evidence, including the
+`rewind_processes` trap that makes this look like an EDR block, is in
+`references/modules/endpoint.md` → "Process `path` convention".
+
 ### `threat.yaml` top-level hierarchy
 
 ```yaml
@@ -497,7 +547,7 @@ remote_files:
 play_processes:
   - path: reg.exe
     arguments: add "HKCU\...\RunOnce" /v "*x" /d "%TMP%\dummy.exe" /f
-    timeout: 15                  # process-level, undocumented until now
+    timeout: 15000               # process-level, MILLISECONDS (15 = 15 ms = killed at once)
     remote_files:
       - file: files/<base64 blob>
         path: '%TMP%\dummy.exe'
@@ -586,8 +636,11 @@ measured over all 31180 Picus actions. Key points:
   real Picus threats. The `{id, query, type: Default}` object is only how the **API** returns it;
   never write a `type:` key into `threat.yaml`.
 - One query per action (99.98% of the library).
-- The query must contain something **uniquely attributable to this action** — a file hash, the
-  `{PICUSID}` marker, a sandbox-unique argument — or every simulation will look detected.
+- The query must contain something **uniquely attributable to this action** — a file hash, a
+  sandbox-unique argument, or for Web Application `page<display_id>` (the value Picus puts in
+  place of `{PICUSID}`) — or every simulation will look detected. Generic web tokens
+  (`/wp-admin/admin-ajax.php`, `X-Requested-With`) match other actions' logs; body/header tokens
+  are missing from most web log feeds. See [web-keyword-fix.md](references/web-keyword-fix.md).
 - `AND NOT (…)` exists to suppress Picus's **own** cleanup noise (`PICUS_REWIND`, `rm -rf`,
   `pkill`). Add it only for Endpoint modules and Data Exfiltration.
 
@@ -631,6 +684,9 @@ what it checks, plus the few judgement calls it cannot make:
 - [ ] `success_conditions` sits on the **process**, not the action
 - [ ] `title` omitted for macOS Endpoint and URL Filtering, present elsewhere
 - [ ] Each `request_content` path matches a real `.req` file in `files/` (Web Application)
+- [ ] Web Application: after import, every action's keyword is `("page<display_id>")`
+      (`fix_web_keywords.py verify`), and the edited actions were re-checked — Products empty is
+      expected, empty description / Method / request is not
 - [ ] Result-condition references (`%action-1%`, `%objective-N%`, `%process-N%`) don't exceed the actual item count
 - [ ] Result-condition join operator matches the module table above
 - [ ] `keyword_queries` follows the canonical template for the module
@@ -640,10 +696,47 @@ what it checks, plus the few judgement calls it cannot make:
 - [ ] `is_applicable_to_all_platforms` is set on every action
 - [ ] Endpoint actions have at least one `play_processes` entry with a `path` or `arguments`
 - [ ] File Download / Email actions have `remote_files[].is_downloaded: true`
+- [ ] Windows endpoint: **every action** has `affected_platforms` (not only the campaign) and process `timeout`s are **milliseconds** (>= 1000)
+- [ ] Windows `remote_files`: only `file` / `path: '%TMP%\name'` / `is_downloaded`; no `is_executable`, no absolute dir; scripts run through `cmd.exe /c`
+- [ ] After import, run once on a Windows agent and confirm `command != " "` and `log_content` non-empty (else see the two "not tested" rows above)
 - [ ] ZIP password is `picus` (AES-256 via `7z -mem=AES256 -tzip`)
 - [ ] Module-specific items in the per-module reference doc's authoring checklist pass
 
 ---
+
+## Deleting custom actions (safety rules)
+
+Threat DELETE leaves the threat's actions behind, and the public API cannot delete actions (GET only).
+Actions are deleted through the UI's internal API, using the logged-in browser session:
+
+```
+DELETE https://<picus>/api/v2/ui/actions/action/{id}
+Cookie: <copy the whole cookie header from DevTools -> Network -> any DELETE in /scv/threat-builder>
+Origin: https://<picus>   Referer: https://<picus>/scv/threat-builder
+-> 200 {"code":200,"success":true,"data":{"message":"action deleted successfully"}}
+```
+
+The `token` cookie in that header lasts about 2 hours; the cookie stays in the user's own file
+(e.g. `platform/picus_delete_action`), never copy it anywhere else and never print it.
+
+**Hard rules**
+1. **Delete only actions the user created (custom actions).** Never delete an action that the Picus
+   platform ships. Custom actions come from one global counter starting at 1000101 and have
+   `id == display_id` (verified: 1000101 / 1000100 are custom; Picus's predefined 11735 has
+   display_id 182594, 13193 has 772823 -- `id != display_id`, and predefined records also carry a
+   `tags` field). A display_id in the millions is **not** proof of "custom" (BitlockMove is 5234974).
+2. **Delete only ids the user created in this work**: take the ids from this session's own import
+   (new actions are created contiguously), re-read each one with
+   `GET /v1/threat-library/actions/{id}`, and delete only if its name matches what you imported
+   AND `id == display_id`. Never sweep a range you did not import.
+3. **If the user asks for something that looks like a Picus platform action** (id != display_id,
+   a low id, a predefined-looking name, or anything you did not import): STOP, tell the user it
+   looks like a Picus-shipped action, remind them they asked to delete it and that it cannot be
+   undone, and wait for an explicit confirmation before sending the DELETE. Do not infer consent
+   from the earlier "delete everything" wording.
+4. An action that is still used by a threat is not an orphan: delete the threat first (public API
+   `DELETE /v1/threat-library/threats/{id}` works), then its actions.
+5. Report afterwards how many were deleted / skipped, and re-GET to confirm.
 
 ## Common errors & fixes
 
@@ -653,6 +746,23 @@ what it checks, plus the few judgement calls it cannot make:
 | `400 — missing threat.yaml` | `threat.yaml` not at root of the inner folder | Check ZIP structure — must be `<name>/threat.yaml` |
 | `400 — invalid YAML` | Syntax error or missing required field | Check indentation, required fields (`name`, `module`, `objectives`, `actions`) |
 | `File not found in archive` | `remote_files.file` path doesn't match | Ensure `file: files/payload.bin` matches actual ZIP path |
+| Action `not tested`, `completion_ratio: 0`, `command: " "` in the run result | absolute `path` in a Windows `play_processes` entry — agent returns empty path *and* arguments | use the bare exe name (`reg.exe`), or `%TMP%\tool.exe` for a payload you dropped; see Process `path` above. The rewind still runs, so it looks like an EDR block |
+| Action `not tested` + UI "Can not run process on an incompatible platform"; only the rewind runs, `command: " "`, no child of `Picus.Simulator.exe` | **no action-level `affected_platforms`** (campaign-level does not count) | copy the campaign's platform list onto EVERY action; `validate_threat.py` now ERRORs. Same symptom as the absolute-`path` row above -- check both |
+| Process killed instantly, log `Is timed out. Timeout : 0.03`, action grades **blocked** | `timeout` is **milliseconds**, not seconds (`timeout: 30` = 30 ms) | use 5000-120000; `validate_threat.py` ERRORs on < 1000 |
+| Windows play process with a dropped script (`.vbs`/`.ps1`) never starts: no Sysmon EID 1, no EDR event, empty output | `remote_files` carries `is_executable: true` and/or an absolute drop dir (`C:\ProgramData\...`) | Windows form is `file` / `path: '%TMP%\name'` / `is_downloaded: true` only; run it via `cmd.exe /c wscript.exe "%TMP%\x.vbs"` or `cmd.exe /c powershell.exe -File "%TMP%\x.ps1"` (`arguments` is not shell-expanded, so `%TMP%` needs cmd) |
+| `Set-BitLockerVolume`: "The drive is too small to be protected" (0x8031006F) | scratch VHDX of 64MB | `New-VHD -SizeBytes 256MB` or larger |
+| `New-VHD` / `manage-bde` "not recognized", BDESVC "does not exist" | agent lacks Hyper-V PowerShell / BitLocker feature; those actions grade blocked (and `success_conditions` can match the error text -> spurious *unblocked*) | on the agent: `Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-Management-PowerShell -All -NoRestart` (needs `-All` for the parent feature) and install BitLocker; a Windows **Server** SKU often lacks both |
+| Real **Prevention** from CrowdStrike on `manage-bde -on ... -RemoveVolumeShadowCopies` | VSS-deletion behaviour ("Suspicious Activity") | genuine block, report it; drop the flag for a variant that tests encryption alone |
+| Action names get a ` (1)`, ` (2)` ... suffix after re-import | action `name` is **globally unique** and **deleting a threat does not delete its actions** (orphans stay, still holding the name) | action names are **free text** -- Picus's own are like `PHP Php2Shell RCE Vulnerability Variant-1`, so spaces, capitals and punctuation are fine and no prefix or snake_case is needed. If a suffix appears, an orphan owns the name: delete the orphan with the procedure in **Deleting custom actions** below (never rename around it just to dodge the suffix) |
+| Dropped Windows payload never executes | wrapped in `cmd.exe /c` when nothing needed a shell, or `remote_files` put at action level instead of inside the process | put the drop in `path` as `%TMP%\tool.exe` with its `remote_files` nested in the same process |
+| `{predefined-process-sleep}` step does nothing | `arguments` written as a bare number (`5`) instead of a quoted string (`"5"`) | quote it; Picus writes `arguments: "5"` in all 33 of its own sleep steps |
+| Lateral-movement action runs against nothing | hardcoded peer host/credentials, or `is_remote`/`needs_creds` authored in the YAML | use `%REMOTEIP%` / `%REMOTEHOSTNAME%` / `%REMOTEDOMAIN%` / `%REMOTEUSERNAME%` / `%REMOTEPASSWORD%` in `arguments`; those two fields are UI-API-only and are ignored on import |
+| Endpoint action grades Logged on the cleanup, not the attack | `keyword_queries` has no `AND NOT` guard | append the module's guard — Windows `AND NOT ("PICUS_REWIND" OR ("File created:" AND ("Scenarios" OR "Simulation")))`; see `references/picus-house-style.md` §7 |
+| `GET /threats?page=2` returns page 1 again | pagination is `offset`, and `search`/`attack_module_id` are ignored on that endpoint | `?limit=100&offset=100`; `limit>100` silently returns 0 rows |
+| Windows action never runs although `arguments` look right | `path` omitted or `' '` (the Unix form) used on `Endpoint Scenario` | Windows needs a real bare exe name in `path` |
+| `400 — 'T1562' is not valid` (whole pack refused) | Picus has no `T1562` family | tactic `TA0112` + `T1685` / `T1685.001` / `T1685.005` / `T1686` / `T1688` / `T1689` — see `references/accepted-values.md` |
+| `400 — exceeds max length (N > 255)` on `comment` | campaign/action `comment` over 255 chars | trim to ≤255; older imports silently truncated instead of failing |
 | Result condition reference error | `%action-N%` or `%objective-N%` exceeds item count | Renumber so max reference ≤ actual item count |
-</content>
-</invoke>
+| Web action Not Logged although its request is in the SIEM | keyword not `("page<display_id>")` (body/header-only token, or never fixed after import) — or the log arrived after Picus queried | `fix_web_keywords.py verify`; if keywords are right, compare `_indextime` with Picus's search time and use Rerun detection |
+| Web action Logged but the log belongs to another action | generic content keyword (shared path such as `/wp-admin/admin-ajax.php`) | set `("page<display_id>")` with `fix_web_keywords.py` |
+| Products / description / Method empty after editing a web action | UI edit form drops them; Products cannot be set for Web Application | expected for Products; restore description/Method with `fix_web_keywords.py fix --yaml-dir` |

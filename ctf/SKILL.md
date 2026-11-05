@@ -1,5 +1,6 @@
 ---
-name: CTF Challenge
+name: ctf
+title: "CTF Challenge"
 description: Capture-the-flag reverse engineering — find the flag efficiently
 tags: [ctf, challenge, flag, solver]
 ---

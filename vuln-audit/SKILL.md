@@ -1,5 +1,6 @@
 ---
-name: Vulnerability Audit
+name: vuln-audit
+title: "Vulnerability Audit"
 description: Security audit — buffer overflows, format strings, integer issues, memory safety
 tags: [vulnerability, security, audit, exploit]
 ---

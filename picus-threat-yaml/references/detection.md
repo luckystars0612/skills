@@ -214,9 +214,11 @@ This is the detection half of a threat. Measured over all 31180 Picus actions:
   representation only — `type` is always `Default` there, and must never be written into
   `threat.yaml`.
 - One query per action (99.98%).
-- The query must match something **uniquely attributable to this action** — a payload hash, the
-  `{PICUSID}` marker, a sandbox-unique argument. A generic query makes every simulation look
-  detected.
+- The query must match something **uniquely attributable to this action** — a payload hash, a
+  sandbox-unique argument, or for Web Application `page<display_id>` (`{PICUSID}` in the `.req`
+  is replaced by the action's display_id). A generic query makes every simulation look
+  detected. Custom web actions get their display_id only at import, so their keyword is fixed
+  afterwards — see [web-keyword-fix.md](web-keyword-fix.md).
 - `AND NOT (…)` suppresses Picus's own cleanup/rewind noise. Add it only for the Endpoint modules
   and Data Exfiltration; Picus uses none for File Download, Email, Web Application, URL Filtering,
   AWS or GCP.

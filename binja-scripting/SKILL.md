@@ -1,5 +1,6 @@
 ---
-name: Binary Ninja Scripting
+name: binja-scripting
+title: "Binary Ninja Scripting"
 description: Write and execute Binary Ninja Python scripts — full API reference included
 tags: [scripting, binja, python, automation]
 author: Rikugan

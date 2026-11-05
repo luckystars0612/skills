@@ -15,10 +15,10 @@
 |---|---|---|
 | `module` | `Email` (literal) | campaign-level |
 | `severity` | `High` | only severity seen |
-| `affected_os` | `- Linux` *or* `- Windows` | single-element list — pick the OS that matches the malware's target |
+| `affected_os` | single-element list | measured over 11,935 predefined Email actions: `Windows` 10623, `Linux` 925, **`macOS` 208**; multi-OS lists exist but are rare (160). Pick the OS the malware targets. |
 | `is_atomic` | `true` | always on actions |
 | `ukc_phase` | `Delivery` | always literal |
-| `category` | `Malicious Code` | only valid category seen (`Vulnerability Exploitation` is also accepted by Picus for this module) |
+| `category` | `Malicious Code` | 11479/11935; `Vulnerability Exploitation` on the other 456 — use it when the payload is an exploit rather than a malware sample |
 | `is_applicable_to_all_platforms` | `true` | always |
 | `title` (action) | `Phishing` | always literal |
 | `comment` | absent | Email threats don't carry an action-level comment |
