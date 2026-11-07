@@ -78,7 +78,9 @@ if os.path.exists(settings_path):
 else:
     settings = {}
 
-hook_cmd = 'echo \\'{}\\' | python -I \"\$HOME/.claude/scripts/inject_state.py\" 2>/dev/null || echo \\'{}\\''
+# NOTE: no 'echo {} |' prefix -- the script must receive Claude Code's
+# real stdin payload so it can read hook_event_name and echo it back.
+hook_cmd = 'python -I \"\$HOME/.claude/scripts/inject_state.py\" 2>/dev/null || echo \\'{}\\''
 
 hooks = settings.setdefault('hooks', {})
 hooks['PostCompact'] = [{

@@ -51,15 +51,23 @@ if ($Uninstall) {
     if (Test-Path $SettingsFile) {
         if ($DryRun) { Write-Host "  [dry-run] remove hooks from settings.json" }
         else {
-            python -c @'
-import json, os
-p = os.path.join(os.path.expanduser("~"), ".claude", "settings.json")
+            # NOTE: `python -c @'...'@` does NOT work -- PowerShell 5.1 strips the
+            # quotes when passing a here-string to a native exe, so the code fails
+            # with a SyntaxError. Always go through a temp .py file.
+            $py = @'
+import json, os, sys
+p = sys.argv[1]
 with open(p, "r") as f: s = json.load(f)
 h = s.get("hooks", {})
 h.pop("PostCompact", None); h.pop("SessionStart", None)
 if not h: s.pop("hooks", None)
 with open(p, "w") as f: json.dump(s, f, indent=2)
 '@
+            $tmp = Join-Path ([System.IO.Path]::GetTempPath()) 'claude_hooks_uninstall.py'
+            Set-Content -Path $tmp -Value $py -Encoding utf8
+            python -I $tmp $SettingsFile
+            if ($LASTEXITCODE -ne 0) { Remove-Item -Force $tmp; throw "failed to update $SettingsFile" }
+            Remove-Item -Force $tmp
             Write-Host "  removed hooks from settings.json"
         }
     }
@@ -84,17 +92,21 @@ else {
 if ($DryRun) {
     Write-Host "  [dry-run] merge hooks into settings.json"
 } else {
-    python -c @'
-import json, os
+    # NOTE: temp .py file, not `python -c @'...'@` -- see the comment in the
+    # uninstall branch for why.
+    $py = @'
+import json, os, sys
 
-settings_path = os.path.join(os.path.expanduser("~"), ".claude", "settings.json")
+settings_path = sys.argv[1]
 if os.path.exists(settings_path):
     with open(settings_path, "r") as f:
         settings = json.load(f)
 else:
     settings = {}
 
-hook_cmd = "echo '{}' | python -I \"$HOME/.claude/scripts/inject_state.py\" 2>/dev/null || echo '{}'"
+# NOTE: no `echo '{}' |` prefix -- the script must receive Claude Code's real
+# stdin payload so it can read hook_event_name and echo it back.
+hook_cmd = "python -I \"$HOME/.claude/scripts/inject_state.py\" 2>/dev/null || echo '{}'"
 
 hooks = settings.setdefault("hooks", {})
 hooks["PostCompact"] = [{
@@ -118,6 +130,11 @@ hooks["SessionStart"] = [{
 with open(settings_path, "w") as f:
     json.dump(settings, f, indent=2)
 '@
+    $tmp = Join-Path ([System.IO.Path]::GetTempPath()) 'claude_hooks_install.py'
+    Set-Content -Path $tmp -Value $py -Encoding utf8
+    python -I $tmp $SettingsFile
+    if ($LASTEXITCODE -ne 0) { Remove-Item -Force $tmp; throw "failed to update $SettingsFile" }
+    Remove-Item -Force $tmp
     Write-Host "  hooks  -> $SettingsFile"
 }
 
