@@ -197,7 +197,7 @@ Read in plain terms:
 
 - **File Download** — `((SHA256 OR SHA1 OR MD5) OR (MD5 AND "<ext>"))`
 - **Email** — `(("<display_id>" AND ("Attachment" OR "URL")) OR ((SHA256 OR SHA1 OR MD5) OR (MD5 AND "<ext>")))`
-- **Web Application** — a **single term**: `("page<PICUSID>")`, where PICUSID is the action's own display_id (what the agent puts in place of `{PICUSID}` in the `.req`); for custom threats set it after import — [web-keyword-fix.md](web-keyword-fix.md)
+- **Web Application** — a **single term**: `("page<PICUSID>")`, where PICUSID is the action's own display_id (what the agent puts in place of `{PICUSID}` in the `.req`); for custom threats set it after import. This is what Picus's own 2646 web actions do, so it is the house style — but the property the term actually needs is only "in the request URI and unique to this action", which a per-action marker you author also satisfies with no post-import edit (verified on threat 8110, 22/22 Logged) — [web-keyword-fix.md](web-keyword-fix.md)
 - **URL Filtering** — a **single term**: `("<domain>")`
 - **Data Exfiltration** — `(((("act_id" AND "<id>") OR "-<id>-" OR "|<id>|") OR ((hashes) OR ("<dataset>" AND "<ext>"))) AND NOT ("picexfil" AND "short-url"))`
 - **Endpoint (all OS)** — `((<name/hash/arg terms>) AND NOT (<rewind + cleanup noise>))`

@@ -4,6 +4,14 @@ Verified on a live Picus deployment, 2026-10-19, with 5 custom web campaigns (94
 through Cloudflare into Splunk. This file supersedes any older text in this skill that calls
 `{PICUSID}` "unpredictable" or recommends content-based keywords for web actions.
 
+> **You can skip this entire fix.** The post-import edit exists only because the keyword has to name
+> the display_id, which does not exist yet at authoring time. A **unique per-action marker carried in
+> the request URI** has the same attribution property and is final the moment you write it — no
+> cookie, no UI edit, and Products survives. See
+> [Self-attributing marker: no post-import fix](#self-attributing-marker-no-post-import-fix) at the
+> end of this file; it is verified, not a suggestion. Use the workflow below when you want the
+> house-style `("page<display_id>")` keyword, or when the `.req` cannot carry your own marker.
+
 ## How Picus attributes a web log to an action
 
 1. Every `.req` path carries `{PICUSID}`. At replay the agent substitutes the **action's
@@ -52,11 +60,16 @@ which every web log source records.
 Therefore "fix the YAML and re-import" never converges (new import → new ids). The working flow
 is **import once, then edit the keyword of each created action in place**.
 
-## Workflow for every new custom web threat
+## Workflow when you want the canonical `("page<display_id>")` keyword
+
+(For the no-fix alternative, see
+[Self-attributing marker](#self-attributing-marker-no-post-import-fix).)
 
 1. Author `threat.yaml` normally. For `keyword_queries` write a placeholder that is still useful
    if the fix is skipped — a specific URI token of that request — but treat it as temporary.
-   `validate_threat.py` warns on any web keyword that is not `("page<digits>")` as a reminder.
+   `validate_threat.py` checks it against the `.req`: a term unique to that action's request line
+   is a NOTE (sound as-is), a term shared with another action or missing from the request line is
+   a WARN. Warnings are the reminder; a NOTE means you can stop here.
 2. Import the archive.
 3. Find the new threat's internal id: `GET /v1/threat-library/threats?is_predefined=false`.
 4. List ids and sync the local repo:
@@ -119,11 +132,64 @@ Not Logged. Check `_indextime` vs Picus's search times (`index=_audit user=<picu
 **Rerun detection** on the run (`POST /v1/simulations/{id}/run/{run}/rerun-detection`) instead of
 editing keywords.
 
+## Self-attributing marker: no post-import fix
+
+**Verified 2026-11-12** — threat 8110 `Cloudflare WAF Path Normalization Bypass Web Attack
+Campaign`, 22 actions (ids 1000404–1000425), simulation 306 run 345 on agent 28 over https,
+Cloudflare → Splunk: **22/22 Logged, 0 cross-matches, no keyword edit of any kind**, and the
+Cloudflare log `action` field matched the Picus prevention verdict on all 22 requests. This replaces
+the earlier "untested" note about marker prefixes.
+
+Give each action a marker that is unique to it, put the marker **in the request URI**, and make that
+marker the keyword:
+
+```
+POST //wp-login.php?page{PICUSID}=cfbyp01 HTTP/1.1
+```
+```yaml
+keyword_queries:
+    - ("cfbyp01")        # final at authoring time
+```
+
+Why it works: Picus's attribution rule is a case-insensitive substring match of the keyword over the
+log record, so the only requirements are that the token is **in the part of the request the log feed
+carries** (the request line) and that it belongs to **one action**. `("page<display_id>")` satisfies
+them by construction; a unique marker satisfies them by choice, and needs no id that does not exist
+yet.
+
+What this buys:
+
+| | `("page<display_id>")` | unique marker |
+|---|---|---|
+| post-import edit | required (cookie, UI API) | **none** |
+| Products (`affected_products`) | lost in the edit | **kept** |
+| path the WAF sees | prefixed with `/page<id>/` | **byte-exact as authored** |
+| house style | yes | no — justify it in the action `comment` |
+
+**`{PICUSID}` may live in the query string.** It does not have to be in the path: predefined action
+146080 (Joomla Search RCE) carries it in `searchword=`, and threat 8110 carries it in
+`?page{PICUSID}=<marker>` in all 22 actions. This is what makes the technique usable for
+path-shaped attacks — a `/page{PICUSID}/` prefix rewrites the start of the path and destroys the
+payload of any leading-`//`, dot-segment, encoded-character or traversal test.
+
+Because a custom action imports with `id == display_id`, writing the marker as
+`?page{PICUSID}=<marker>` keeps **both** keyword forms valid against the same logged URI: stay on
+`("<marker>")`, or switch to `("page<display_id>")` later without re-authoring the `.req`.
+
+`validate_threat.py` checks the marker mechanically — it reads every `.req` and, for a web keyword
+that is not `("page<display_id>")`, reports:
+
+- **NOTE** — the term is unique to that action's request line: sound, no fix needed.
+- **WARN** — the term also appears in another action's request line: cross-match, Logged proves
+  nothing.
+- **WARN** — the term is not in the request line at all: body/header-only token, permanently Not
+  Logged.
+
+Pass the campaign dir or the ZIP (not the bare `threat.yaml`) or it cannot read the `.req` text and
+falls back to warning on every non-canonical keyword.
+
+
 ## Other `.req` pitfalls found in the same review
 
 - Unresolved placeholders are sent literally (`/posts/$POSTID/…` reached the WAF as-is). Replace
   them with a concrete value.
-- Prefixing the PICUSID segment with your own fixed marker (`/cfk001page{PICUSID}/…`, keyword
-  `("cfk001page")`) would avoid the post-import edit, but it is **untested** — Picus's own
-  packages only show alphabetic prefixes (`loginpage{PICUSID}`). Trial it on one small threat
-  and confirm prevention and detection before relying on it.

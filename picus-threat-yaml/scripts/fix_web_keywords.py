@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """Post-import fix for custom Web Application threats: set every action's keyword to ("page<display_id>").
 
+You may not need this script at all. A web keyword only has to sit in the request URI and belong to
+exactly one action, so a unique per-action marker you author yourself -- `?page{PICUSID}=cfbyp01` in
+the .req, keyword ("cfbyp01") -- is already correct at import time: no cookie, no UI edit, and
+Products survives. Verified on threat 8110 (22 actions, 22/22 Logged, 0 cross-matches, 2026-11-12);
+see references/web-keyword-fix.md "Self-attributing marker". Use this script when you want the
+house-style ("page<display_id>") keyword, or when the .req cannot carry your own marker.
+
 Why this exists (verified on a live Picus deployment, 2026-10-19 — see references/web-keyword-fix.md):
   * `{PICUSID}` in a `.req` is replaced at replay time by the action's display_id. The display_id is
     assigned when the action is created (import), so it cannot be written into threat.yaml beforehand.

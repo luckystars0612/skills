@@ -52,15 +52,36 @@ When the user asks for a threat:
    local threats pass with zero errors; a deliberately broken threat trips 18 checks.
 6. **Package** — AES-256-encrypted ZIP with password `picus`, then validate the archive
    itself: `validate_threat.py my_threat.zip`.
-7. **Web Application only — fix keywords after import.** The correct keyword is
-   `("page<display_id>")`, and the display_id only exists once Picus has created the action.
-   After the import run `scripts/fix_web_keywords.py ids|fix|verify` (see
-   [web-keyword-fix.md](references/web-keyword-fix.md)), then re-check the edited actions:
-   **Products is always lost** on an edit; description and Method must still be present.
+7. **Web Application only — get the keyword right.** A web keyword must sit in the request URI
+   and belong to exactly one action. Two ways, both verified:
+   - **Marker (no post-import step, preferred when the path is the payload):** put your own unique
+     per-action marker in the URI — `?page{PICUSID}=cfbyp01` — and make it the keyword:
+     `("cfbyp01")`. `{PICUSID}` is substituted in the query string too, so the authored path
+     reaches the WAF byte-exact; nothing to fix after import and **Products survives**.
+   - **Canonical `("page<display_id>")`:** the display_id exists only once Picus has created the
+     action, so after the import run `scripts/fix_web_keywords.py ids|fix|verify`, then re-check
+     the edited actions: **Products is always lost** on an edit; description and Method must still
+     be present.
+
+   A `/page{PICUSID}/` path prefix rewrites the start of the path, so use the marker form for any
+   path-shaped attack (leading `//`, dot segments, encoded path characters, traversal) — the prefix
+   would destroy the payload. Details and evidence:
+   [web-keyword-fix.md](references/web-keyword-fix.md),
+   [web-application.md](references/modules/web-application.md#keyword-placement--path-prefix-or-query-string).
 
 If the input is a Splunk SPL / Sigma rule / plain-text goal AND the module is
 **Linux Endpoint** or **Windows Endpoint**, you can use the [auto-pipeline](#auto-pipeline-linux--windows-endpoint-only)
 as a shortcut. For every other module, hand-authoring is the only path.
+
+**If the goal is to make a specific SIEM rule fire** (detection-rule validation, false-positive
+review), read [picus-house-style.md §10](references/picus-house-style.md) first. The job is to
+satisfy the rule's predicate, **not** to build a working payload: a renamed copy of a system
+binary, a real binary run with a failing argument, a marker string inside a PowerShell script
+block, or an empty file with the watched name all satisfy the common rule shapes and leave the
+host untouched. Section 10 also lists the agent log-coverage checks to run **before** authoring —
+an action that executes perfectly proves nothing when the agent never ships the log source the
+rule reads (per-host PowerShell Script Block Logging, sparse Sysmon EID 8, DC-only event codes,
+missing `Network_Traffic` coverage).
 
 ---
 
@@ -78,7 +99,7 @@ Alongside it:
 |---|---|
 | [picus-house-style.md](references/picus-house-style.md) | **patterns read off the vendor's own predefined threats** — the per-OS `play_processes[].path` rule and its silent-no-op failure mode, `arguments` shell semantics, dropped-payload pattern, Picus's divergence from MITRE (`TA0112` / `T1685`), import limits, and the API recipe to re-derive all of it |
 | [detection.md](references/detection.md) | what "detection" means in Picus, how `keyword_queries` drives it, and the 5858-rule Detection Content catalog |
-| [web-keyword-fix.md](references/web-keyword-fix.md) | Web Application: `{PICUSID}` = action display_id, why the keyword must be `("page<id>")`, the post-import fix script, and what an action edit loses (Products) |
+| [web-keyword-fix.md](references/web-keyword-fix.md) | Web Application: `{PICUSID}` = action display_id, the two sound keyword forms (`("page<id>")` after the post-import fix, or a self-attributing URI marker that needs no fix), `{PICUSID}` in the query string, and what an action edit loses (Products) |
 | [vocab-threat-actors.md](references/vocab-threat-actors.md) | all 206 `threat_actor` values **with aliases** |
 | [vocab-malware-families.md](references/vocab-malware-families.md) | all 2233 `malware_family` values |
 | [vocab-platforms.md](references/vocab-platforms.md) | all 92 `affected_platforms` name/architecture pairs |
@@ -191,12 +212,14 @@ Conventions:
   extension are *inside* the encoded string. Verified 76/76 in real Picus exports.
   Keep the `=` padding. **Not** `<base64(MD5)>___<base64(UUID)>.<ext>`.
 - **Web Application:** HTTP request body in `files/<digits>.req` with the mandatory
-  `{PICUSID}` placeholder somewhere in the path (not necessarily its own `/page{PICUSID}/`
-  segment — `/page{PICUSID}.htm` and `/loginpage{PICUSID}.htm` are both confirmed-valid forms,
-  see [web-application.md](references/modules/web-application.md)) and **no `Host:` header**
-  (the target host/port comes from the Picus assessment config, not the `.req` file).
-  Picus replaces `{PICUSID}` with the action's display_id, so the keyword is `("page<display_id>")`
-  — set after import with `scripts/fix_web_keywords.py`.
+  `{PICUSID}` placeholder somewhere in the **request URI** — not necessarily its own
+  `/page{PICUSID}/` segment, and not necessarily in the path at all: `/page{PICUSID}.htm`,
+  `/loginpage{PICUSID}.htm` and `?page{PICUSID}=<marker>` in the query string are all
+  confirmed-valid forms (see [web-application.md](references/modules/web-application.md)) —
+  and **no `Host:` header** (the target host/port comes from the Picus assessment config, not
+  the `.req` file). Picus replaces `{PICUSID}` with the action's display_id, so the keyword is
+  `("page<display_id>")` — set after import with `scripts/fix_web_keywords.py` — or your own
+  unique per-action marker placed in the URI, which is final at authoring time and needs no fix.
 - **Data Exfiltration:** realistic-looking PDF/XLSX in `files/<base64("<id>___<uuid>.<ext>")>`
   — one base64 blob, same rule as above.
 - **URL Filtering:** no payload (`.yaml`-only export).
@@ -637,10 +660,12 @@ measured over all 31180 Picus actions. Key points:
   never write a `type:` key into `threat.yaml`.
 - One query per action (99.98% of the library).
 - The query must contain something **uniquely attributable to this action** — a file hash, a
-  sandbox-unique argument, or for Web Application `page<display_id>` (the value Picus puts in
-  place of `{PICUSID}`) — or every simulation will look detected. Generic web tokens
-  (`/wp-admin/admin-ajax.php`, `X-Requested-With`) match other actions' logs; body/header tokens
-  are missing from most web log feeds. See [web-keyword-fix.md](references/web-keyword-fix.md).
+  sandbox-unique argument, or for Web Application either `page<display_id>` (the value Picus puts
+  in place of `{PICUSID}`) or your own unique per-action marker carried in the request URI — or
+  every simulation will look detected. Generic web tokens (`/wp-admin/admin-ajax.php`,
+  `X-Requested-With`) match other actions' logs; body/header tokens are missing from most web log
+  feeds. `validate_threat.py` checks a web keyword against every `.req` request line and says
+  which of the three cases you are in. See [web-keyword-fix.md](references/web-keyword-fix.md).
 - `AND NOT (…)` exists to suppress Picus's **own** cleanup noise (`PICUS_REWIND`, `rm -rf`,
   `pkill`). Add it only for Endpoint modules and Data Exfiltration.
 
@@ -684,9 +709,12 @@ what it checks, plus the few judgement calls it cannot make:
 - [ ] `success_conditions` sits on the **process**, not the action
 - [ ] `title` omitted for macOS Endpoint and URL Filtering, present elsewhere
 - [ ] Each `request_content` path matches a real `.req` file in `files/` (Web Application)
-- [ ] Web Application: after import, every action's keyword is `("page<display_id>")`
-      (`fix_web_keywords.py verify`), and the edited actions were re-checked — Products empty is
-      expected, empty description / Method / request is not
+- [ ] Web Application: every action's keyword is in the request URI and unique to that action —
+      either a marker you authored (nothing to do after import) or `("page<display_id>")` set with
+      `fix_web_keywords.py verify` after import, with the edited actions re-checked (Products empty
+      is expected, empty description / Method / request is not)
+- [ ] Web Application: validated against the campaign dir or ZIP, so the keyword-vs-`.req` check
+      actually ran (a bare `threat.yaml` cannot be checked)
 - [ ] Result-condition references (`%action-1%`, `%objective-N%`, `%process-N%`) don't exceed the actual item count
 - [ ] Result-condition join operator matches the module table above
 - [ ] `keyword_queries` follows the canonical template for the module
@@ -761,8 +789,11 @@ The `token` cookie in that header lasts about 2 hours; the cookie stays in the u
 | `GET /threats?page=2` returns page 1 again | pagination is `offset`, and `search`/`attack_module_id` are ignored on that endpoint | `?limit=100&offset=100`; `limit>100` silently returns 0 rows |
 | Windows action never runs although `arguments` look right | `path` omitted or `' '` (the Unix form) used on `Endpoint Scenario` | Windows needs a real bare exe name in `path` |
 | `400 — 'T1562' is not valid` (whole pack refused) | Picus has no `T1562` family | tactic `TA0112` + `T1685` / `T1685.001` / `T1685.005` / `T1686` / `T1688` / `T1689` — see `references/accepted-values.md` |
+| `400 — '<Txxxx.00n>' is not valid` (whole pack refused) on a sub-technique MITRE does define | Picus's sub-technique catalog is a **subset** of MITRE's. Confirmed rejected or unharvested: `T1048.003`, `T1546.011`, `T1114.001`, `T1574.002` | **Drop `sub_technique` and keep `technique`** — it is optional, and a parent technique alone never failed an import in this work. Only keep a sub-technique you copied from a predefined action. `validate_threat.py` warns "not in the harvested Picus catalog"; treat that warning as *remove it*, not as *probably fine* |
+| Validator warns `technique Txxxx is valid but Picus never pairs it with tactic TAxxxx` | the pair is unusual for the library, e.g. `T1558`+`TA0007`, `T1484`+`TA0005`, `T1112`+`TA0005` | pick a tactic from the list the warning prints (`T1558`→`TA0006`, `T1484`→`TA0004`, registry/UAC→`TA0005`+`T1548`). Import tolerated the odd pairs, but matching the library keeps the MITRE view coherent |
 | `400 — exceeds max length (N > 255)` on `comment` | campaign/action `comment` over 255 chars | trim to ≤255; older imports silently truncated instead of failing |
 | Result condition reference error | `%action-N%` or `%objective-N%` exceeds item count | Renumber so max reference ≤ actual item count |
-| Web action Not Logged although its request is in the SIEM | keyword not `("page<display_id>")` (body/header-only token, or never fixed after import) — or the log arrived after Picus queried | `fix_web_keywords.py verify`; if keywords are right, compare `_indextime` with Picus's search time and use Rerun detection |
-| Web action Logged but the log belongs to another action | generic content keyword (shared path such as `/wp-admin/admin-ajax.php`) | set `("page<display_id>")` with `fix_web_keywords.py` |
+| Web action Not Logged although its request is in the SIEM | keyword token is not in the request **line** (body/header-only), or still the temporary one — or the log arrived after Picus queried | `validate_threat.py` on the campaign dir names the case; `fix_web_keywords.py verify`; if keywords are right, compare `_indextime` with Picus's search time and use Rerun detection |
+| Web action Logged but the log belongs to another action | generic content keyword (shared path such as `/wp-admin/admin-ajax.php`) | give each action a unique URI marker as its keyword, or set `("page<display_id>")` with `fix_web_keywords.py` |
+| A path-shaped payload (leading `//`, `/./`, `%77…`, traversal) is never exercised | the `.req` used a `/page{PICUSID}/` prefix, which rewrote the start of the path | move the placeholder into the query (`?page{PICUSID}=<marker>`) and keep the path byte-exact; keyword `("<marker>")` |
 | Products / description / Method empty after editing a web action | UI edit form drops them; Products cannot be set for Web Application | expected for Products; restore description/Method with `fix_web_keywords.py fix --yaml-dir` |

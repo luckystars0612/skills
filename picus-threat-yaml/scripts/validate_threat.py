@@ -90,12 +90,18 @@ class Report:
     def __init__(self) -> None:
         self.errors: list[str] = []
         self.warnings: list[str] = []
+        self.notes: list[str] = []
 
     def err(self, where: str, msg: str) -> None:
         self.errors.append(f"{where}: {msg}")
 
     def warn(self, where: str, msg: str) -> None:
         self.warnings.append(f"{where}: {msg}")
+
+    def note(self, where: str, msg: str) -> None:
+        """Something worth knowing that is not a defect — e.g. a deliberate
+        deviation from house style that this checker verified is sound."""
+        self.notes.append(f"{where}: {msg}")
 
 
 def _op(rc) -> str | None:
@@ -286,7 +292,7 @@ def check_process_path(pr: dict, mod: str, rep: "Report", where: str, label: str
                             f"for {mod} omit `path` and put the command in `arguments`.")
 
 
-def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
+def validate(doc: dict, files: dict[str, str | None] | set[str] | None, rep: Report) -> None:
     c = doc.get("campaign") or doc
     mod = c.get("module")
     where = "campaign"
@@ -332,6 +338,7 @@ def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
             rep.err("campaign.affected_products",
                     f"{p!r} is rejected by the import API; use "
                     f"'Dynamic Web Applications' when the product has no entry")
+    web_kw: list[tuple[str, str, str | None]] = []   # (where, keyword, request_content)
     for oi, o in enumerate(objs, 1):
         ow = f"objective-{oi}"
         if o.get("type") and o["type"] not in VOCAB["objective_types"]:
@@ -498,11 +505,12 @@ def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
                         rep.warn(aw, "keyword contains a literal \\r\\n / \\n — that text never "
                                      "appears in a log record")
                     if mod == "Web Application" and not WEB_KEYWORD.fullmatch(kq.strip()):
-                        rep.warn(aw, "web keyword is not (\"page<display_id>\"). Picus replaces "
-                                     "{PICUSID} with the action's display_id, which exists only after "
-                                     "import: after importing, run scripts/fix_web_keywords.py "
-                                     "(references/web-keyword-fix.md). Content keywords cross-match "
-                                     "other actions and body/header tokens are not in most web logs")
+                        # Deferred to a campaign-level pass: a keyword that is not
+                        # ("page<display_id>") is still sound when its term is unique to this
+                        # action's request LINE, which makes the action self-attributing and
+                        # removes the post-import fix_web_keywords.py step. Judging that needs
+                        # every action's .req, so collect here and decide after the loop.
+                        web_kw.append((aw, kq.strip(), a.get("request_content")))
                     has_not = "AND NOT" in kq
                     if has_not and mod in AND_NOT_NEVER:
                         rep.warn(aw, f"has an `AND NOT` filter, but Picus uses none for {mod} (0%)")
@@ -681,14 +689,85 @@ def validate(doc: dict, files: set[str] | None, rep: Report) -> None:
                     if not a.get(f):
                         rep.warn(aw, f"Data Exfiltration action usually sets `{f}`")
 
+    check_web_keywords(web_kw, files, rep)
 
-def load(target: Path) -> tuple[dict, set[str] | None]:
+
+def _text_of(p: Path) -> str | None:
+    """Text of a payload file, for the checks that need to look inside it. Only .req
+    files are read: they are small, and everything else in files/ is a binary payload."""
+    if p.suffix.lower() != ".req":
+        return None
+    try:
+        return p.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+
+
+def _req_line(text: str) -> str:
+    """The request line of a .req — the only part of an HTTP request that every web log
+    feed records (Cloudflare Logpush ships ClientRequestURI, no headers and no body)."""
+    return (text or "").splitlines()[0] if (text or "").strip() else ""
+
+
+def check_web_keywords(web_kw, files, rep: Report) -> None:
+    """Web Application keywords that are not ("page<display_id>").
+
+    Such a keyword is NOT automatically wrong. It is sound when its term appears in this
+    action's request line and in no other action's, because then the term attributes the
+    log to exactly one action — the same property ("page<display_id>") has — and no
+    post-import fix_web_keywords.py / browser-cookie step is needed. Verified on threat
+    8110 (22 actions, markers in the query string): 22/22 Logged, 0 cross-matches.
+
+    Only reachable when `files` carries the .req text, i.e. a campaign dir or a ZIP.
+    """
+    if not web_kw:
+        return
+    texts = files if isinstance(files, dict) else {}
+    lines = {}
+    for aw, _kq, rc in web_kw:
+        lines[aw] = _req_line(texts.get(rc) or "") if rc else ""
+    have_text = any(lines.values())
+    for aw, kq, rc in web_kw:
+        terms = re.findall(r'"([^"]+)"', kq)
+        if not terms:
+            rep.warn(aw, f"web keyword {kq!r} has no quoted term; Picus matches the quoted "
+                         f"text as a substring of the log record")
+            continue
+        if not have_text:
+            rep.warn(aw, "web keyword is not (\"page<display_id>\") and the .req text is not "
+                         "available here (pass the campaign dir or the ZIP, not the bare "
+                         "threat.yaml) — cannot check whether the term is in the request line")
+            continue
+        mine = lines.get(aw, "")
+        for t in terms:
+            others = [o for o, ln in lines.items() if o != aw and t.lower() in ln.lower()]
+            if t.lower() not in mine.lower():
+                rep.warn(aw, f"web keyword term {t!r} is not in this action's request line "
+                             f"({rc}). A body- or header-only token never matches: most web log "
+                             f"feeds carry the request line alone, and the action stays Not "
+                             f"Logged for good. Put the token in the URI, or use "
+                             f"(\"page<display_id>\") via scripts/fix_web_keywords.py "
+                             f"(references/web-keyword-fix.md)")
+            elif others:
+                rep.warn(aw, f"web keyword term {t!r} also appears in the request line of "
+                             f"{len(others)} other action(s) ({', '.join(sorted(others)[:3])}"
+                             f"{'...' if len(others) > 3 else ''}) — Logged would then prove "
+                             f"nothing. Make the token unique per action, or use "
+                             f"(\"page<display_id>\")")
+            else:
+                rep.note(aw, f"web keyword {kq} is not (\"page<display_id>\") but its term is "
+                             f"unique to this action's request line, so the action is "
+                             f"self-attributing and needs no post-import keyword fix. Keep the "
+                             f"marker in the URI if you re-author the .req")
+
+
+def load(target: Path) -> tuple[dict, dict[str, str | None] | None]:
     if target.is_dir():
         y = target / "threat.yaml"
         if not y.exists():
             sys.exit(f"no threat.yaml in {target}")
-        files = {f"files/{p.name}" for p in (target / "files").glob("*")} \
-            if (target / "files").is_dir() else set()
+        files = {f"files/{p.name}": _text_of(p) for p in (target / "files").glob("*")} \
+            if (target / "files").is_dir() else {}
         return yaml.safe_load(y.read_text()), files
     if target.suffix.lower() == ".zip":
         # Picus archives are AES-256, which Python's zipfile cannot decrypt, so
@@ -706,8 +785,8 @@ def load(target: Path) -> tuple[dict, set[str] | None]:
                 if y is None:
                     sys.exit("no threat.yaml inside the archive")
                 root = y.parent
-                files = {str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()
-                         and p != y}
+                files = {str(p.relative_to(root)): _text_of(p) for p in root.rglob("*")
+                         if p.is_file() and p != y}
                 return yaml.safe_load(y.read_text()), files
         try:
             with zipfile.ZipFile(target) as z:
@@ -717,7 +796,17 @@ def load(target: Path) -> tuple[dict, set[str] | None]:
                     sys.exit("no threat.yaml inside the archive")
                 prefix = inner[: -len("threat.yaml")]
                 doc = yaml.safe_load(z.read(inner, pwd=b"picus").decode())
-                files = {n[len(prefix):] for n in names if n != inner and not n.endswith("/")}
+                files = {}
+                for n in names:
+                    if n == inner or n.endswith("/"):
+                        continue
+                    txt = None
+                    if n.lower().endswith(".req"):
+                        try:
+                            txt = z.read(n, pwd=b"picus").decode("utf-8", "replace")
+                        except Exception:
+                            txt = None
+                    files[n[len(prefix):]] = txt
                 return doc, files
         except RuntimeError as e:
             sys.exit(f"cannot read archive — install 7z to check AES archives: {e}")
@@ -733,7 +822,7 @@ def main() -> None:
 
     doc, files = load(args.target)
     if args.files_dir:
-        files = {f"files/{p.name}" for p in args.files_dir.glob("*")}
+        files = {f"files/{p.name}": _text_of(p) for p in args.files_dir.glob("*")}
 
     rep = Report()
     validate(doc, files, rep)
@@ -742,10 +831,13 @@ def main() -> None:
         print(f"ERROR   {e}")
     for w in rep.warnings:
         print(f"WARN    {w}")
+    for n in rep.notes:
+        print(f"NOTE    {n}")
     c = doc.get("campaign") or doc
     nacts = sum(len(o.get("actions") or []) for o in (c.get("objectives") or []))
     print(f"\n{c.get('module')} | {len(c.get('objectives') or [])} objectives | {nacts} actions")
-    print(f"{len(rep.errors)} error(s), {len(rep.warnings)} warning(s)")
+    tail = f", {len(rep.notes)} note(s)" if rep.notes else ""
+    print(f"{len(rep.errors)} error(s), {len(rep.warnings)} warning(s){tail}")
     sys.exit(1 if rep.errors else 0)
 
 

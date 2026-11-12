@@ -184,12 +184,13 @@ Accept-Encoding: gzip, deflate
 
 **Format invariants:**
 
-- First line: `<METHOD> <path-containing-{PICUSID}> HTTP/1.1` — the `{PICUSID}` placeholder is **mandatory somewhere in the path**, but it is **not required to be its own `/page{PICUSID}/` segment**. Picus substitutes it at replay time with the **action's display_id** (fixed per action, identical in every run — see [web-keyword-fix.md](../web-keyword-fix.md)) regardless of where in the path it sits. Confirmed variants seen in real, Picus-distributed packages (not just hand-authored ones):
+- First line: `<METHOD> <request-URI containing {PICUSID}> HTTP/1.1` — the `{PICUSID}` placeholder is **mandatory somewhere in the request URI**. It does **not** have to be its own `/page{PICUSID}/` segment, and it does **not** have to be in the path at all: `?page{PICUSID}=<marker>` in the query string works and is the right choice when the path itself is the payload (see [Keyword placement](#keyword-placement--path-prefix-or-query-string) below). Picus substitutes it at replay time with the **action's display_id** (fixed per action, identical in every run — see [web-keyword-fix.md](../web-keyword-fix.md)) regardless of where in the path it sits. Confirmed variants seen in real, Picus-distributed packages (not just hand-authored ones):
   - `/page{PICUSID}/index.php?s=...` — own segment (the common case, use this by default when there's no reason to do otherwise)
   - `/page{PICUSID}.htm` — glued directly to a file extension, no trailing slash
   - `/loginpage{PICUSID}.htm` — glued onto a literal word (`loginpage`) with no delimiter at all
   - `/page{PICUSID}/cli` — own segment followed by more path
-  Pick whichever form matches the real endpoint path you're imitating (e.g. a login page can legitimately be `/loginpage{PICUSID}.htm` instead of forcing an artificial `/page{PICUSID}/login.htm`). The only hard rule is that the literal token `{PICUSID}` must appear once in the path — write it verbatim as `{PICUSID}`; Picus fills in the action's display_id, which is what the keyword must contain.
+  - `/index.php?option=com_search&…searchword=…page{PICUSID}…` — **in the query string, not the path at all** (predefined action 146080, Joomla Search RCE; it ran and graded normally in a live Cloudflare assessment)
+  Pick whichever form matches the real endpoint path you're imitating (e.g. a login page can legitimately be `/loginpage{PICUSID}.htm` instead of forcing an artificial `/page{PICUSID}/login.htm`). The only hard rule is that the literal token `{PICUSID}` must appear once in the request URI — write it verbatim as `{PICUSID}`; Picus fills in the action's display_id, which is what the keyword must contain.
 - Subsequent lines: HTTP headers, one per line.
 - **NEVER emit a `Host:` header.** The target host and port are supplied by the Picus assessment configuration at replay time, not by the `.req` file. Adding `Host:` conflicts with that injection and is wrong. None of the canonical examples contain a `Host:` line — the request line is followed directly by `User-Agent`. This applies even when the attack targets a specific host or a non-standard port (e.g. SAP on `:50000`): the host/port belongs in the assessment target, not the request file. Do not add `Host:` "to be safe" or because a captured request had one.
 - The only headers to include are the ones the attack actually needs: `User-Agent`, `Accept`, `Accept-Language`, `Accept-Encoding`, plus `Authorization` / `Content-Type` / `Content-Length` / `Cookie` when the request body or auth requires them. No `Host`, and no invented headers.
@@ -239,7 +240,11 @@ Authentication Bypass Web Attack Campaign package).
 ### Custom threats: the id only exists after import
 
 A display_id is assigned when the action is created, Picus stores `keyword_queries` verbatim, and
-re-importing creates new actions with new ids. So for a **custom** web threat:
+re-importing creates new actions with new ids — so a custom threat cannot ship the canonical keyword.
+There are two sound ways out, and **the second needs no post-import step at all**.
+
+**Option A — canonical keyword, fixed after import.** Required when the request must keep a clean
+`/page{PICUSID}/…` path and you want the house-style keyword.
 
 1. Author the YAML with a temporary keyword (a specific URI token of that request — never a
    generic path like `/wp-admin/admin-ajax.php`, never a body/header-only token).
@@ -251,6 +256,59 @@ re-importing creates new actions with new ids. So for a **custom** web threat:
    [web-keyword-fix.md](../web-keyword-fix.md#what-editing-an-action-does-to-its-other-fields).
 
 Do not "fix the YAML and re-import": the new import gets new ids and the keywords are wrong again.
+
+**Option B — self-attributing marker, no fix at all.** Give each action its own literal marker in
+the request URI and make that marker the keyword. The keyword is then correct at creation time, so
+there is no edit, no browser cookie, and Products survives.
+
+### Keyword placement — path prefix or query string
+
+What a keyword needs is one property: **the token must sit in the request URI and belong to exactly
+one action.** `("page<display_id>")` has that property, and so does a per-action marker you choose
+yourself. The URI is what matters because most web log feeds carry the request line only — the
+Cloudflare Logpush job behind this skill's evidence ships `ClientRequestURI` and no headers or body.
+
+| | Option A: `/page{PICUSID}/wp-login.php` | Option B: `//wp-login.php?page{PICUSID}=cfbyp01` |
+|---|---|---|
+| keyword in YAML | temporary, then `("page<display_id>")` | `("cfbyp01")` — final at authoring time |
+| post-import step | `fix_web_keywords.py` + browser cookie | none |
+| Products after import | lost in the keyword edit | kept |
+| path the WAF sees | prefixed by Picus | **byte-exact as authored** |
+| use when | normal campaigns: the path is just a route to the payload | the path **is** the payload |
+
+**Option B is the only way to test a path-shaped attack.** A `/page{PICUSID}/` prefix rewrites the
+start of the path, so it destroys exactly what a path-normalization, leading-`//`, dot-segment,
+encoded-first-character or traversal payload is probing: `//wp-login.php` becomes
+`/page1000404//wp-login.php`, which no longer exercises a rule anchored on the start of the path.
+Put the placeholder in the query instead and the path stays untouched.
+
+```
+POST //wp-login.php?page{PICUSID}=cfbyp01 HTTP/1.1
+User-Agent: …
+```
+```yaml
+keyword_queries:
+    - ("cfbyp01")        # final — unique to this action, sits in the logged URI
+```
+
+**Verified** on threat 8110 (`Cloudflare WAF Path Normalization Bypass Web Attack Campaign`, 22
+actions, markers `cfbyp01`…`cfbyp22` in the query string), simulation 306 run 345, 2026-11-12,
+replayed through Cloudflare into Splunk: **22/22 Logged, no cross-matches, no keyword edit**, and
+the Cloudflare log `action` field agreed with the Picus prevention verdict on all 22 requests — so
+the query-string placeholder is substituted and the exact authored path reaches the edge.
+
+Two details worth knowing:
+
+- A custom action imports with `id == display_id` (observed 1000404–1000425), so writing the marker
+  as `?page{PICUSID}=<marker>` leaves **both** keyword forms valid against the same URI: keep
+  `("<marker>")`, or switch to `("page<display_id>")` later without touching the `.req`.
+- Make the marker unique and non-generic (`cfbyp07`, not `wp-login.php`). `validate_threat.py`
+  enforces this mechanically: it reads every `.req`, and for a keyword that is not
+  `("page<display_id>")` it reports a **NOTE** when the term is unique to that action's request
+  line, a **WARN** when the term appears in another action's request line (Logged would prove
+  nothing) and a **WARN** when the term is missing from the request line (body/header-only token —
+  permanently Not Logged). Pass the campaign dir or the ZIP, not the bare `threat.yaml`, or it
+  cannot see the `.req` text.
 
 ---
 
@@ -331,8 +389,10 @@ Do not "fix the YAML and re-import": the new import gets new ids and the keyword
 - [ ] `severity: High`, `category: Web Application`, `ukc_phase: Exploitation`, `title: Exploitation` — copy verbatim
 - [ ] `affected_os: [- Windows, - Linux, - macOS]` (or narrower per-action)
 - [ ] Each action has `cwe`, `owasp`, `use_case` set from the vocabulary tables
-- [ ] Each action's `keyword_queries` is (or will be, after import) exactly `("page<display_id>")` — before import use a temporary keyword built from a specific URI token, never a body/header-only or generic-path token
-- [ ] After import: run `scripts/fix_web_keywords.py ids/fix/verify`, then re-check one action in the UI (Products will be empty; description and Method must still be there)
+- [ ] Each action's keyword sits in the request URI and belongs to exactly one action — either `("page<display_id>")` (Option A, set after import) or a unique per-action marker that the `.req` carries in the URI (Option B, final at authoring time). Never a body/header-only or generic-path token
+- [ ] Option B when the path itself is the payload (leading `//`, dot segments, encoded path characters, traversal): placeholder goes in the query as `?page{PICUSID}=<marker>` so the authored path reaches the WAF byte-exact
+- [ ] Option A only: after import run `scripts/fix_web_keywords.py ids/fix/verify`, then re-check one action in the UI (Products will be empty; description and Method must still be there)
+- [ ] Validate against the campaign **dir or ZIP**, not the bare `threat.yaml` — the keyword/URI cross-match check needs the `.req` text
 - [ ] Each action has `request_content: files/<digits>.req` and a matching `.req` file exists in `files/`
 - [ ] The `.req` file's first line contains the literal `{PICUSID}` token somewhere in the path (mandatory) — it does not need to be its own `/page{PICUSID}/` segment; `/page{PICUSID}.htm` or `/loginpage{PICUSID}.htm` are both valid, confirmed forms
 - [ ] `keyword_queries` always uses the literal word `page<digits>`, regardless of what word the `.req` path uses before its `{PICUSID}` placeholder

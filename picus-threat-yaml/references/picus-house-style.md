@@ -323,3 +323,85 @@ on the agent; Windows Server images usually have neither.
 8. Confirm the host-side telemetry you expect (Sysmon EID1/EID13, auditd EXECVE) actually appears.
 9. Windows endpoint: `affected_platforms` on every action, `timeout` in milliseconds, `remote_files`
    without `is_executable` and dropped to `%TMP%\name` (section 9).
+10. Authoring to make a SIEM rule fire: no real payload needed — renamed system binary, failing
+   argument, marker string in a script block, or an empty file with the watched name (section 10).
+   Give every action a unique marker token and lead `keyword_queries` with it.
+11. Verify the agent actually ships the log source the rule reads before authoring (section 10.3),
+   and read `security_content_summariesonly` rather than assuming acceleration delay (section 10.4).
+
+---
+
+## 10. Authoring to trigger a SIEM rule (detection-rule validation) — 2026-11-12
+
+A different goal from emulating an adversary: the threat exists only to make one SIEM
+correlation rule fire, so the detection team can tell a real detection from a
+false positive. **Payload realism is not required — matching the rule's predicate is.**
+Measured while building 23 actions against 23 Splunk ESCU/VinSOC rules on agent 4
+(`sdc2-pisimu04`).
+
+### 10.1 Four substitutions that keep the action harmless and still match
+
+| Rule predicate | Harmless way to satisfy it |
+|---|---|
+| `process_name=<tool>.exe` with no hash/signature/`original_file_name` check | **Renamed copy of a system binary.** `cmd.exe /c copy /y "%WINDIR%\System32\cmd.exe" "%TMP%\plink.exe" && "%TMP%\plink.exe" /c echo -R 1080` — the child's `process_name` is `plink.exe`, no third-party tool needed. Works for `plink.exe`, `psexec.exe`, `nltest.exe`, `setspn.exe`, `java.exe`, `rundll32.exe`. Check first whether the rule also tests `original_file_name` — a renamed `cmd.exe` reports `Cmd.Exe`, so the rule must have an OR branch on `process_name` alone. |
+| cmdline substring only | **Run the real binary with a failing argument.** `nltest /domain_trusts` on a non-domain host, `setspn -q */*` with no rights, `mmc gpme.msc /gpobject:"LDAP://CN={31B2F340-…}"` without RSAT, `sdbinst -q C:\Windows\Temp\x.sdb` on a file that does not exist. The process-create event records the full command line whether or not the command succeeds — `Endpoint.Processes` rules fire anyway. |
+| PowerShell `ScriptBlockText` substring (EventCode 4104) | **Put the string in a comment or a literal.** `powershell.exe -NoProfile -Command "Write-Output 'marker for system.enterpriseservices.internal.publish'"` logs the whole script block, so a rule matching `*system.enterpriseservices.internal.publish*` fires without publishing anything to the GAC. |
+| `Filesystem.file_name` / `file_path` | **Create an empty file with the watched name.** `cmd.exe /c echo marker > C:\Windows\Temp\mpsvc.dll` satisfies a DLL-side-load rule; `…\passwords-x.txt` satisfies a browser-credential rule; `…\x.pst` satisfies an Outlook-data-file rule. Content is irrelevant — these rules read the filesystem datamodel, not the file. |
+
+Where a rule needs a **privileged-group name**, prefer a *local* object over a directory
+one: creating a local group called `ESX Admins` emits EventCode 4731 with
+`TargetUserName="ESX Admins"` on the agent itself, which satisfies the rule without
+touching a real AD group. Same trick for `net localgroup`-shaped rules generally.
+
+### 10.2 Put a unique marker token in every command
+
+Every action gets a token nothing else emits (`BASFP08`, `BASFP31`, …) and the token goes
+into `keyword_queries` as the first term:
+
+```yaml
+keyword_queries:
+  - '(("BASFP31" OR "querytype") AND NOT ("PICUS_REWIND" OR ("File created:" AND ("Scenarios" OR "Simulation"))))'
+```
+
+Two payoffs: Picus's detection verdict cannot be satisfied by an unrelated log line, and
+afterwards you can pin the exact event and notable times from the SIEM side with one
+search per token (`index=os_win BASFP31 | stats min(_time) max(_indextime)`), which is what a
+detection-validation report has to state.
+
+### 10.3 Check agent log coverage *before* authoring
+
+An action that runs perfectly proves nothing if the agent's telemetry never reaches the SIEM.
+Confirm, per agent, that the sources the target rules read actually arrive — the agent's
+OS hostname is usually **not** the Splunk `host` field (events arrive via a WEC/forwarder, so
+`host` is the collector and `Computer`/`dest` is the agent):
+
+```
+| tstats summariesonly=false allow_old_summaries=true count, max(_time) as last
+    from datamodel=Endpoint.Processes where Processes.dest=*<agent>* by Processes.dest, Processes.vendor_product
+search index=os_win Computer="<agent>*" | stats count by sourcetype, EventCode   # which EIDs exist
+```
+
+Findings worth repeating as expectations, not assumptions:
+
+- Sysmon EID 8 / 10 / 11 / 13 / 3 are often all present, but **EID 8 is sparse** — confirm it
+  rather than assuming the Sysmon config logs `CreateRemoteThread`.
+- **PowerShell Script Block Logging is per host.** Of three Windows agents only two emitted
+  EventCode 4104 at all; a 4104-based rule silently never fires on the third. Pick the agent
+  by log coverage, not by OS version.
+- `4776` / `4769` / `5136` only exist on a **Domain Controller**, `15457` only where SQL Server
+  runs — no endpoint agent can produce them.
+- A Linux agent may ship `auditd` but **not** the `auth` / `linux_secure` sourcetype that
+  `sudo`-log rules read, or vice versa. Check both.
+- Agent traffic may be absent from `Network_Traffic` / `Network_Resolution` entirely, which
+  rules out every rule keyed on those datamodels regardless of what the agent does.
+
+### 10.4 `summariesonly` is a per-deployment macro — read it, do not assume
+
+`security_content_summariesonly` is **not always** `summariesonly=true`. On the deployment
+measured here it expands to `summariesonly=false allow_old_summaries=true fillnull_value=null`,
+so the `tstats` rules read raw data and there is **no datamodel-acceleration delay** to wait out
+after a simulation. Read the macro before telling anyone to wait for acceleration:
+
+```
+GET /servicesNS/-/-/configs/conf-macros?search=name%3Dsecurity_content_summariesonly&f=definition
+```
