@@ -1,7 +1,7 @@
 ---
 name: win-lpe-hunt
-description: Hunt Windows local privilege escalation (LPE) in SYSTEM services, antivirus/EDR agents, updaters and drivers by binary analysis + hypothesis generation. Confused-deputy-against-a-privileged-file/registry-op bug class. Generates MULTIPLE falsifiable hypotheses, each pairing a privileged operation × a redirect primitive × a race-win × a SYSTEM-conversion, then validates them with IDA (idalib MCP) static analysis and Procmon dynamic tracing. Use when auditing any Windows binary that runs as SYSTEM/admin and touches user-influenced paths — AV/EDR, vendor updaters, profile/logon services, installers, GPU/audio/print helpers, kernel drivers — or when the user wants new LPE ideas from a target binary. 中文触发词：本地提权、Windows提权、LPE、驱动漏洞、杀软提权
-tags: [windows, lpe, privilege-escalation, ida, idalib, reverse-engineering, antivirus, edr, toctou, symlink, confused-deputy]
+description: Hunt Windows local privilege escalation (LPE) in SYSTEM services, antivirus/EDR agents, updaters and drivers by binary analysis + hypothesis generation. Confused-deputy-against-a-privileged-file/registry-op bug class. Generates MULTIPLE falsifiable hypotheses, each pairing a privileged operation × a redirect primitive × a race-win × a SYSTEM-conversion, then validates them with IDA (idalib MCP) static analysis and Procmon dynamic tracing. Includes per-vendor reference files for Defender, CrowdStrike, Kaspersky, Avast/GenDigital, NVIDIA, BitLocker/WinRE, and User Profile Service with detailed technique chains. Vendor-agnostic AV/EDR methodology for new targets. Use when auditing any Windows binary that runs as SYSTEM/admin and touches user-influenced paths — AV/EDR, vendor updaters, profile/logon services, installers, GPU/audio/print helpers, kernel drivers — or when the user wants new LPE ideas from a target binary. 中文触发词：本地提权、Windows提权、LPE、驱动漏洞、杀软提权
+tags: [windows, lpe, privilege-escalation, ida, idalib, reverse-engineering, antivirus, edr, toctou, symlink, confused-deputy, cfapi, clfs, namespace-hijack, patch-bypass]
 ---
 
 # win-lpe-hunt — Windows LPE hypothesis engine
@@ -87,14 +87,17 @@ the `references/HYPOTHESIS_TEMPLATE.md` format. Build each by picking one item f
 column:
 
 ```
-PRIVILEGED OP          ×  REDIRECT PRIMITIVE        ×  RACE-WIN            ×  SYSTEM CONVERSION
-- scan+clean (MpClient)   - NTFS junction              - batch oplock         - DLL plant in SYSTEM search path
-- quarantine RESTORE      - object-mgr symlink+shadow   - cfapi FETCH_DATA     - arbitrary delete → reload hijack
-- sandbox/agent read      - \.\globalroot bridge       - filter oplock        - SAM/LSA read → linked token → service
-- config/self-heal reload - DefineDosDevice \??\        - CfExecute stall      - hive load → HKCU\Classes COM hijack
-- installer/MSI repair    - HKCU REG_EXPAND_SZ poison   - hardlink swap        - protected read → DPAPI/creds → lateral
-- updater manifest fetch  - hardlink to victim file     - (deterministic       - weak section OOB → DWM/cross-session
-- IOCTL file/reg op       - weak-DACL section write        via cfapi)          - pre-auth WinRE config → unlocked shell
+PRIVILEGED OP              ×  REDIRECT PRIMITIVE          ×  RACE-WIN            ×  SYSTEM CONVERSION
+- scan+clean (MpClient)       - NTFS junction (B1)          - batch oplock (C1)    - DLL plant in SYSTEM search path
+- quarantine RESTORE          - obj-mgr symlink+shadow (B2) - cfapi FETCH_DATA(C2) - arbitrary delete → reload hijack
+- sandbox/agent read (A3)     - \.\globalroot bridge        - filter oplock        - SAM dump → SamiChangePwd → svc (D)
+- config/self-heal reload     - DefineDosDevice \?? (B4)    - CfExecute stall      - hive load → COM hijack
+- installer/MSI repair (A5)   - HKCU REG_EXPAND_SZ (B3)    - hardlink swap        - DPAPI/creds → lateral
+- RPC coercion (A7)           - hardlink to victim (B5)     - (deterministic       - weak section OOB → DWM
+- namespace hijack (A8)       - weak-DACL section (B6)         via cfapi)          - pre-auth WinRE → unlocked shell
+- disk exhaustion DoS (A9)    - TxF atomic write (B7)                             - CLFS .cnpf create → DLL plant
+- IOCTL file/reg op (A6)     - CLFS container path (B8)                          - AV namespace hijack → trusted exec
+                                                                                   - CMSTPLUA UAC bypass → SYSTEM
 ```
 
 For each hypothesis you MUST write:
@@ -155,9 +158,43 @@ Never auto-submit; the human decides.
 - Record dead hypotheses in the report; they show coverage and prevent re-treading.
 
 ## Pointers
-- `references/PRIMITIVES.md` — the full primitive toolkit with API sequences and idalib queries.
-- `references/HYPOTHESIS_TEMPLATE.md` — the hypothesis format + a worked example + a starter
-  set of ranked hypotheses (the bug class is distilled from public MSNightmare LPE research).
-- The primitive names (MpClient clean, cfapi FETCH_DATA oracle, object-manager symlink +
-  globalroot, User Shell Folders indirection, weak-DACL section) are documented inline in
-  `references/PRIMITIVES.md` so the skill is self-contained.
+
+### Core references
+- `references/PRIMITIVES.md` — full primitive toolkit: A1–A9 privileged ops, B1–B8 redirects,
+  C1–C2 race-wins, D conversions (expanded), E auxiliary primitives, F impersonation grep,
+  G patch-bypass methodology. Each entry has API signatures and idalib queries.
+- `references/HYPOTHESIS_TEMPLATE.md` — hypothesis format + worked example + starter set.
+- `references/VENDOR_METHODOLOGY.md` — 7-phase vendor-agnostic AV/EDR bug hunting playbook:
+  recon, confused-deputy identification, redirect testing, self-protection bypass analysis,
+  update pipeline analysis, impact conversion, patch-bypass methodology.
+
+### Per-target reference files (references/targets/)
+Each contains: target binary, vulnerability class, full technique chain with code, key
+APIs, and "hunt generalization" section for applying the pattern to other vendors.
+
+- `targets/DEFENDER_ROGUEPLANET.md` — CVE-2026-50656, MpClient TOCTOU, oplock race
+- `targets/DEFENDER_SHIELDBREAK.md` — CVE-2026-69414, cfapi FETCH_DATA (deterministic),
+  object-manager symlinks. **cfapi is the highest-leverage primitive in the collection.**
+- `targets/DEFENDER_SHIELDCRASH.md` — ShieldBreak patch bypass, WinDefend RPC coercion
+- `targets/DEFENDER_SIGNDROP.md` — CLFS authentication mitigation abuse, .cnpf arbitrary
+  create as SYSTEM, Defender RPC coercion. Bypasses ALL AV self-protection.
+- `targets/DEFENDER_BIGDISKBUSTER.md` — update DoS via disk exhaustion
+- `targets/CROWDSTRIKE_FALCONFLANK.md` — macro remediation DLL sideload, TxF, Task Scheduler
+- `targets/KASPERSKY_HARDBREACHER.md` — DOS device namespace hijack, parent-spoofed process
+- `targets/AVAST_PRETTYPRAGUE.md` — sandbox SAM read → full driverless SYSTEM chain
+- `targets/NVIDIA_GREENSECTION.md` — shared section weak DACL, cross-session corruption
+- `targets/BITLOCKER_GREATXML.md` — WinRE unattend.xml injection after Defender offline scan
+- `targets/UPS_LEGACYHIVE.md` — User Profile Service hive-load race via offline hive poison
+
+### Technique cross-reference (when hunting a specific pattern)
+| Pattern | Best reference |
+|---|---|
+| AV scan/clean TOCTOU | DEFENDER_ROGUEPLANET → SHIELDBREAK → SHIELDCRASH |
+| cfapi FETCH_DATA oracle | DEFENDER_SHIELDBREAK (canonical), PRIMITIVES.md C2 |
+| CLFS abuse | DEFENDER_SIGNDROP, PRIMITIVES.md B8 |
+| AV namespace hijack | KASPERSKY_HARDBREACHER, PRIMITIVES.md A8 |
+| Sandbox file-read escalation | AVAST_PRETTYPRAGUE, PRIMITIVES.md A3 |
+| DLL sideload via remediation | CROWDSTRIKE_FALCONFLANK, PRIMITIVES.md A2 |
+| Shared memory corruption | NVIDIA_GREENSECTION, PRIMITIVES.md B6 |
+| Patch-bypass methodology | PRIMITIVES.md section G, DEFENDER_SHIELDBREAK/SHIELDCRASH |
+| New vendor methodology | VENDOR_METHODOLOGY.md |
